@@ -1,0 +1,4 @@
+Date	   Start	   Stop	   Activity	   Comments
+ 
+14/09    14:30    20:00    Learning    Learning how to work with Git.
+
