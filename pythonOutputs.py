@@ -44,11 +44,27 @@ y = float("20.1")
 
 print x + y
 
+#!/usr/bin/python2.7 -u
 
+answer = 41
+if answer > 0:
+    answer = answer + 2
+if answer == 43:
+    answer = answer - 1
+print answer
 
+#!/usr/bin/python2.7 -u
+answer = 0
+while answer < 36:
+    answer = answer + 7
+print answer
 
+#!/usr/bin/python2.7 -u
 
-
+x = 1
+while x <= 10:
+    print x
+    x = x + 1
 
 
 

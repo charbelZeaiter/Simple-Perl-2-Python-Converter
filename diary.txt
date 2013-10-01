@@ -4,4 +4,6 @@ Date	   Start	   Stop	   Activity	            Comments
 14/09    21:00    21:36    Coding               Modifying given starting sample to progress with as own work.
 29/09    15:30    17:30    Coding               Progressing with subset 1. Catering for Variables.
 30/09    09:30    12:13    Coding & Testing     Parsing inner content of 'print' statement.
-30/09    14:48    17:05    Coding & Testing     Finishing off subset 1. Catering for type casts and constants.      
+30/09    14:48    17:05    Coding & Testing     Finishing off subset 1. Catering for type casts and constants.
+01/10    09:00    12:30    Coding               Working through subset 2, operators and loop constructs.
+01/10    14:00    15:41    Testing & Debugging  Testing all subsets coded thus far. 

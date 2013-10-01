@@ -14,10 +14,14 @@
 #  Purpose:                         Assignment 1 >> 'Perl to Python Compiler'.
 #########################################################################################
 
+# Global flags and variables.
+$loopFlag{"endedMatch"} = "";
+$loopFlag{"incrementor"} = "";
+
 # Behave like unix filter and read in all lines from file.
 while ($line = <>)
 {
-   
+	
    # Start matching and translating.
    if ($line =~ /^#!/ ) 
    {#&& $. == 1
@@ -38,19 +42,40 @@ while ($line = <>)
 	{
 	   # Detected Print statement.
 	   
+	   # Operator translations which can occur anywhere at any time.
+	   $line = parseOperators($line);
+	   
 	   # Call print parsing function.
 	   $line = parsePrint($line);
 	   
 	   print $line;
-	} 
-	elsif ($line =~ /[\$\@\%]/)
+	}
+	elsif ($line =~ m/\s*if\s*\(|\s*elsif\s*\(|\s*else\s*\{|\s*while\s*\(|\s*for\s*\(/)
 	{
-	   # Detected Variable line.
+	   # Detected a control structure.
+      
+      # Control structure translation.
+	   $line = parseControlStructures($line);
 	   
-      # Translate Perl variables.
+	   # Operator translations which can occur anywhere at any time.
+	   $line = parseOperators($line);
+
+	   # Translate Perl variables.
       $line = checkAndOrTranslateVaribales($line);
-		
-		print $line;
+	   
+	   print $line;
+	} 
+	elsif ($line =~ m/^\s*next\;|^\s*last\;/)
+	{
+	   # Detected loop constructs.
+	   
+	   # Translate loop construct 'next' to 'continue';
+	   $line =~ s/^(\s*)next\;/$1continue;/g;
+	   
+	   # Translate loop construct 'last' to 'break';
+	   $line =~ s/^(\s*)last\;/$1break;/g;
+	   
+	   print $line;
 	}
 	elsif ($line =~ m/use constant [_a-zA-Z0-9]+ \=\> [0-9]+\;/i)
 	{
@@ -60,6 +85,29 @@ while ($line = <>)
 	   $line = parseNumericConstant($line);
 	   
 	   print $line;
+	}
+	elsif($line =~ m/\s*\{\s*|(\s*)\}\s*/)
+	{
+	   # Detected curly bracket.
+	   
+	   $spaces = $1;
+	   
+	   # Process curly brackets.
+      $line = parseCurlyBrackets($line, $spaces);
+      
+      print $line if($line ne "");
+	}
+	elsif ($line =~ /[\$\@\%]/)
+	{
+	   # Detected Variable line.
+	   
+	   # Operator translations which can occur anywhere at any time.
+	   $line = parseOperators($line);
+      
+      # Translate Perl variables.
+      $line = checkAndOrTranslateVaribales($line);
+		
+		print $line;
 	} 
 	else 
 	{
@@ -67,13 +115,14 @@ while ($line = <>)
 		# Lines that can't be translated are turned into comments.
 		print "# Could not translate: \"".$line."\"\n";
 		
-	}
+	} 
 	
 }
 
 # Function which translates variables ###################################################
 #########################################################################################
-sub checkAndOrTranslateVaribales {
+sub checkAndOrTranslateVaribales 
+{
    
    my ($inputLine) = @_;
 
@@ -126,16 +175,16 @@ sub parsePrint
 	      
 	   $result = $newSubPart;
    }
-   elsif($line =~ /^\s*print\s*\(*"(.*)\\n"\)*[\s;]*$/)
+   elsif($line =~ /^(\s*)print\s*\(?"(.*)\\n*"\)?[\s;]*$/)
    {
 	   # Get sub part inside print statement.
-	        
+	   
       # Process inner strings and varibles.
-      $newSubPart = translatePrintSubPart($1);
+      $newSubPart = translatePrintSubPart($2);
 		
 	   # Python's print adds a new-line character by default
 	   # so we need to delete it from the Perl print statement.
-	   $result = "print ".$newSubPart."\n";
+	   $result = $1."print ".$newSubPart."\n";
    }
    else
    {
@@ -159,11 +208,11 @@ sub translatePrintSubPart
       # Case: Multiple words.
       
       # Put quotes around all sub parts of srring.
-      $inputLine =~ s/(\s*)([a-zA-Z0-9_\$]+)(\s*)/"$2"/g;
+      $inputLine =~ s/(\s*)([a-zA-Z0-9_\$\:\=]+)(\s*)/"$2"/g;
       
       # Preserve spacing format.
       $inputLine =~ s/(\"\"\$)/ $1/g;
-      $inputLine =~ s/(\"\")([a-zA-Z0-9_])/$1 $2/g;
+      $inputLine =~ s/(\"\")([a-zA-Z0-9_\:\=])/$1 $2/g;
       
       # Put concatenation symbols.
       $inputLine =~ s/\"\"/"+"/g;
@@ -212,16 +261,111 @@ sub parseNumericConstant
    return $result;  
 }
 
+# Function which translates logical, comparison and bitwise operators ###################
+#########################################################################################
+sub parseOperators 
+{
+   my ($inputLine) = @_;
+   
+   # Logical operators: || && ! and or not 
+   
+   # Translate all '||' to 'or'.
+   $inputLine =~ s/ \|\| / or /g;
+   
+   # Translate all '&&' to 'and'.
+   $inputLine =~ s/ \&\& / and /g;
+   
+   # Comparison operators: <, <=, >, >=, <>, !=, ==
+   
+   # Translate stringwise 'lt' to '<'.
+   $inputLine =~ s/ lt / < /g;
+   
+   # Translate stringwise 'gt' to '>'.
+   $inputLine =~ s/ gt / > /g;
+   
+   # Translate stringwise 'le' to '<='.
+   $inputLine =~ s/ le / <= /g;
+   
+   # Translate stringwise 'gr' to '>='.
+   $inputLine =~ s/ ge / >= /g;
+   
+   # Translate stringwise 'eq' to '=='.
+   $inputLine =~ s/ eq / == /g;
+   
+   # Translate stringwise 'ne' to '!='.
+   $inputLine =~ s/ ne / != /g;
+   
+   # Bitwise operators: | ^ & << >> ~ 
+   # All are the same as Perl.
+   
+   return $inputLine;
+}
 
+# Function which translates perl control structures #####################################
+#########################################################################################
+sub parseControlStructures
+{
+   my ($inputLine) = @_;
+   
+   
+   if($inputLine =~ m/^(\s*if|while)\s*\((.*?)\)\s*\{?/)
+   {  
+      # Translate 'if' or 'while'.      
+      $inputLine = $1." ".$2.":\n";
+   }
+   elsif($inputLine =~ m/^(\s*)elsif\s*\((.*?)\)\s*\{?/)
+   {
+      # Translate 'elsif'.
+      $inputLine = $1."elif ".$2.":\n";
+   }
+   elsif($inputLine =~ m/(\s*)else\s*\{?/)
+   {  
+      # Translate 'else'.
+      $inputLine = "else:\n";
+   }
+   elsif($inputLine =~ m/^(\s*)for\s*\((.*?)\;(.*?)\;(.*?)\)\s*\{?/)
+   {
+      $spaces = $1;
+      $loopVariable = $2;
+      $loopCondition = $3;
+      $loopIncrementor = $4;
+      
+      $loopFlag{"endedMatch"} = $spaces;
+      $loopFlag{"incrementor"} = checkAndOrTranslateVaribales($loopIncrementor);
+      
+      $inputLine = $spaces.$loopVariable."\n";
+      $inputLine .= $spaces."while ".$loopCondition.":\n";
+      
+   }
+   
+   return $inputLine;
+}
 
+# Function which processes perl curly brackets ##########################################
+#########################################################################################
+sub parseCurlyBrackets
+{  
+   my ($inputLine, $spaces) = @_;
+   my $result = "";
 
-
-
-
-
-
-
-
+   if($inputLine =~ m/(\s*)\}(\s*)/)
+   {
+	   if($loopFlag{"endedMatch"} ne "" || $loopFlag{"incrementor"} ne "")
+	   {
+	      # Checking to see if curly bracket belongs to loop construct.
+	      
+	      if($spaces eq $loopFlag{"endedMatch"})
+	      {  
+	         $result = "   ".$loopFlag{"endedMatch"}.$loopFlag{"incrementor"}."\n";
+	         
+	         $loopFlag{"endedMatch"} = "";
+	         $loopFlag{"incrementor"} = "";
+	      }
+	   }
+	}
+	
+	return $result;   
+}
 
 
 
