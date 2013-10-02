@@ -14,11 +14,16 @@
 #  Purpose:                         Assignment 1 >> 'Perl to Python Compiler'.
 #########################################################################################
 
-# Global flags and variables.
-$loopFlag{"endedMatch"} = "";
-$loopFlag{"incrementor"} = "";
+# Global flags and variables ###############
+@translatedCode = ();
 
-# Behave like unix filter and read in all lines from file.
+@loopEndSpaces = ();
+@loopEndIncrementors = ();
+
+$lastSheBangLineNum = 0;
+############################################
+
+# Main Loop: Behave like unix filter and read in all lines.
 while ($line = <>)
 {
 	
@@ -28,19 +33,27 @@ while ($line = <>)
       # Detected ShaBang line.
       	
 		# Translate Shebang '#!' line. 
-		print "#!/usr/bin/python2.7 -u\n";
+		push(@translatedCode, "#!/usr/bin/python2.7 -u\n");
 		
+		# Saving line number.
+		$lastSheBangLineNum = $#translatedCode;
 	} 
 	elsif ($line =~ /^\s*#+/ || $line =~ /^\s*$/) 
 	{
 	   
 		# Detected Blank lines & comment line, which can be passed though unchanged.
-		print $line;
+		push(@translatedCode, $line);
 		
 	} 
 	elsif ($line =~ /^\s*print\s+/) 
 	{
 	   # Detected Print statement.
+	   
+	   # Function translation.
+	   $line = parseFunctions($line);
+	   
+	   # I/O handle translation.
+	   $line = parseIOs($line);
 	   
 	   # Operator translations which can occur anywhere at any time.
 	   $line = parseOperators($line);
@@ -48,12 +61,18 @@ while ($line = <>)
 	   # Call print parsing function.
 	   $line = parsePrint($line);
 	   
-	   print $line;
+	   push(@translatedCode, $line);
 	}
 	elsif ($line =~ m/\s*if\s*\(|\s*elsif\s*\(|\s*else\s*\{|\s*while\s*\(|\s*for\s*\(/)
 	{
 	   # Detected a control structure.
       
+      # Function translation.
+	   $line = parseFunctions($line);
+	   
+	   # I/O handle translation.
+	   $line = parseIOs($line);
+	   
       # Control structure translation.
 	   $line = parseControlStructures($line);
 	   
@@ -63,19 +82,19 @@ while ($line = <>)
 	   # Translate Perl variables.
       $line = checkAndOrTranslateVaribales($line);
 	   
-	   print $line;
+	   push(@translatedCode, $line);
 	} 
 	elsif ($line =~ m/^\s*next\;|^\s*last\;/)
 	{
 	   # Detected loop constructs.
 	   
 	   # Translate loop construct 'next' to 'continue';
-	   $line =~ s/^(\s*)next\;/$1continue;/g;
+	   $line =~ s/^(\s*)next\;/$1continue/g;
 	   
 	   # Translate loop construct 'last' to 'break';
-	   $line =~ s/^(\s*)last\;/$1break;/g;
+	   $line =~ s/^(\s*)last\;/$1break/g;
 	   
-	   print $line;
+	   push(@translatedCode, $line);
 	}
 	elsif ($line =~ m/use constant [_a-zA-Z0-9]+ \=\> [0-9]+\;/i)
 	{
@@ -84,7 +103,7 @@ while ($line = <>)
 	   # Parse constant code.
 	   $line = parseNumericConstant($line);
 	   
-	   print $line;
+	   push(@translatedCode, $line);
 	}
 	elsif($line =~ m/\s*\{\s*|(\s*)\}\s*/)
 	{
@@ -95,11 +114,17 @@ while ($line = <>)
 	   # Process curly brackets.
       $line = parseCurlyBrackets($line, $spaces);
       
-      print $line if($line ne "");
+      push(@translatedCode, $line) if($line ne "");
 	}
 	elsif ($line =~ /[\$\@\%]/)
 	{
 	   # Detected Variable line.
+	   
+	   # Function translation.
+	   $line = parseFunctions($line);
+	   
+	   # I/O handle translation.
+	   $line = parseIOs($line);
 	   
 	   # Operator translations which can occur anywhere at any time.
 	   $line = parseOperators($line);
@@ -107,17 +132,25 @@ while ($line = <>)
       # Translate Perl variables.
       $line = checkAndOrTranslateVaribales($line);
 		
-		print $line;
+		push(@translatedCode, $line);
 	} 
 	else 
 	{
 	
 		# Lines that can't be translated are turned into comments.
-		print "# Could not translate: \"".$line."\"\n";
+		push(@translatedCode, "# Could not translate: \"".$line."\"\n");
 		
 	} 
 	
 }
+
+
+# Print out translated code.
+foreach $line (@translatedCode)
+{
+   print $line;
+}
+
 
 # Function which translates variables ###################################################
 #########################################################################################
@@ -181,7 +214,7 @@ sub parsePrint
 	   
       # Process inner strings and varibles.
       $newSubPart = translatePrintSubPart($2);
-		
+      
 	   # Python's print adds a new-line character by default
 	   # so we need to delete it from the Perl print statement.
 	   $result = $1."print ".$newSubPart."\n";
@@ -224,6 +257,11 @@ sub translatePrintSubPart
       $inputLine =~ s/^\++//;
       $inputLine =~ s/\++$//;
       
+      # Remove all uneeded quote markers. '"+"'
+      $inputLine =~ s/\"\+\"//g;
+   
+      # Laslty, translate any variables.
+      $result = checkAndOrTranslateVaribales($inputLine);
    }
    else
    {
@@ -231,7 +269,7 @@ sub translatePrintSubPart
       if($inputLine =~ /\$/)
       {  
          # Variable.
-         $result = $inputLine;
+         $result = checkAndOrTranslateVaribales($inputLine);
       }
       else
       {
@@ -239,9 +277,6 @@ sub translatePrintSubPart
          $result = "\"$inputLine\"";
       }
    }
-   
-   # Laslty, translate any variables.
-   $result = checkAndOrTranslateVaribales($inputLine);
    
    return $result;
 } 
@@ -324,15 +359,18 @@ sub parseControlStructures
       $inputLine = "else:\n";
    }
    elsif($inputLine =~ m/^(\s*)for\s*\((.*?)\;(.*?)\;(.*?)\)\s*\{?/)
-   {
+   {  
+      # Translate parts of 'for' loop into 'while' loop.
       $spaces = $1;
       $loopVariable = $2;
       $loopCondition = $3;
       $loopIncrementor = $4;
       
-      $loopFlag{"endedMatch"} = $spaces;
-      $loopFlag{"incrementor"} = checkAndOrTranslateVaribales($loopIncrementor);
+      # Save loop incrementor until loop closing brace is detected (same indent of spaces).
+      push(@loopEndSpaces, $spaces);
+      push(@loopEndIncrementors, checkAndOrTranslateVaribales($loopIncrementor));
       
+      # Concatinate result t return.
       $inputLine = $spaces.$loopVariable."\n";
       $inputLine .= $spaces."while ".$loopCondition.":\n";
       
@@ -349,17 +387,18 @@ sub parseCurlyBrackets
    my $result = "";
 
    if($inputLine =~ m/(\s*)\}(\s*)/)
-   {
-	   if($loopFlag{"endedMatch"} ne "" || $loopFlag{"incrementor"} ne "")
+   {  
+	   if(@loopEndSpaces || @loopEndIncrementors)
 	   {
-	      # Checking to see if curly bracket belongs to loop construct.
-	      
-	      if($spaces eq $loopFlag{"endedMatch"})
+	      # Checking to see if curly bracket belongs to end of loop construct.
+	      # match based on spaces/indents.
+	      if($spaces eq $loopEndSpaces[$#loopEndSpaces])
 	      {  
-	         $result = "   ".$loopFlag{"endedMatch"}.$loopFlag{"incrementor"}."\n";
+	         # Get incrementors and spaces and pop from array.
+	         $savedSpaces = pop(@loopEndSpaces);
+	         $savedIncrementor = pop(@loopEndIncrementors);
 	         
-	         $loopFlag{"endedMatch"} = "";
-	         $loopFlag{"incrementor"} = "";
+	         $result = "   ".$savedSpaces.$savedIncrementor."\n";
 	      }
 	   }
 	}
@@ -367,7 +406,37 @@ sub parseCurlyBrackets
 	return $result;   
 }
 
+# Function which translates Perl I/O handles ############################################
+#########################################################################################
+sub parseIOs
+{  
+   my ($inputLine) = @_;
+   my $result = "";
+   
+   # Check/Translate STDIN handle .  
+   if($inputLine =~ s/\<STDIN\>\s*\;/sys.stdin.readline()/g)
+   {  
+      # Import required Python library, below hashbang (In array).
+      splice(@translatedCode, ($lastSheBangLineNum+1), 0, ("import sys\n")); 
+   }
+   
+   $result = $inputLine;
+	
+	return $result;   
+}
 
-
+# Function which translates Perl functions into Python functions ########################
+#########################################################################################
+sub parseFunctions
+{  
+   my ($inputLine) = @_;
+   my $result = "";
+   #    chomp $line;
+   $inputLine =~ s/(\s*)chomp\s*\(?\s*\$([a-zA-Z0-9_]+)\s*\)?\s*\;/$1$2 = $2.rstrip()/ig;  
+   
+   $result = $inputLine;
+	
+	return $result;   
+}
 
 

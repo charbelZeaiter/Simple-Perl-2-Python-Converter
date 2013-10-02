@@ -66,6 +66,37 @@ while x <= 10:
     print x
     x = x + 1
 
+#!/usr/bin/python2.7 -u
+
+x=0
+while x <= 10:
+   print x
+   x=x+1
+
+
+#!/usr/bin/python2.7 -u
+
+x=0
+while x <= 10:
+   print x
+   
+   j=0
+   while j <= 199:
+      print "Hello"
+      j=j+5
+   x=x+1
+
+#!/usr/bin/python2.7 -u
+import sys
+
+while 1:
+    print "Give me cookie"
+    line = sys.stdin.readline()
+    line = line.rstrip()
+    if line == "cookie":
+        break
+print "Thank you"
+
 
 
 

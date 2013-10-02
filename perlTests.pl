@@ -70,6 +70,36 @@ while ($x <= 10) {
     $x = $x + 1;
 }
 
+#!/usr/bin/perl -w
+
+for ($x=0;$x <= 10;$x=$x+1) {
+   print "$x\n";
+}
+
+
+#!/usr/bin/perl -w
+
+for ($x=0;$x <= 10;$x=$x+1) {
+   print "$x\n";
+   
+   for($j=0;$j <= 199;$j=$j+5)
+   {
+      print "Hello";
+   }
+}
+
+#!/usr/bin/perl -w
+
+while (1) {
+    print "Give me cookie\n";
+    $line = <STDIN>;
+    chomp $line;
+    if ($line eq "cookie") {
+        last;
+    }
+}
+print "Thank you\n";
+
 
 
 
