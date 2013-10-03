@@ -75,6 +75,7 @@ while x <= 10:
 
 
 #!/usr/bin/python2.7 -u
+import sys
 
 x=0
 while x <= 10:
@@ -82,7 +83,7 @@ while x <= 10:
    
    j=0
    while j <= 199:
-      print "Hello"
+      sys.stdout.write("Hello")
       j=j+5
    x=x+1
 
@@ -97,7 +98,75 @@ while 1:
         break
 print "Thank you"
 
+#!/usr/bin/python2.7 -u
+import sys
+# writen by andrewt@cse.unsw.edu.au as a COMP2041 example
+# implementation of /bin/echo
 
+print ' '.join(sys.argv[1:])
+
+#!/usr/bin/python2.7 -u
+
+str = "hello world are you there"
+
+print str.split(' ')
+
+#!/usr/bin/python2.7 -u
+
+x = x + 1
+
+shadow[4] = shadow[4] - 1
+
+jig['kell'] = jig['kell'] + 1
+
+#!/usr/bin/python2.7 -u
+import sys
+
+for arg in sys.argv[1:]:
+    print arg
+
+#!/usr/bin/python2.7 -u
+
+for i in xrange(0, 5):
+    print i
+
+#!/usr/bin/python2.7 -u
+
+count = 0
+i = 2
+while i < 100:
+    k = i / 2
+    j = 2
+    while j <= k:
+        k = i % j
+        if k == 0:
+            count = count - 1
+            break
+        k = i / 2
+        j = j + 1
+    count = count + 1
+    i = i + 1
+print count
+
+#!/usr/bin/python2.7 -u
+
+n = 1
+while n <= 10:
+    total = 0
+    j = 1
+    while j <= n:
+        i = 1
+        while i <= j:
+            total = total + i
+            i = i + 1
+        j = j + 1
+    print total
+    n = n + 1
+
+#!/usr/bin/python2.7 -u
+import sys
+
+sys.stdout.write("Hello there "+x+" jiggs")
 
 
 

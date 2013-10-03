@@ -100,7 +100,80 @@ while (1) {
 }
 print "Thank you\n";
 
+#!/usr/bin/perl -w
+# writen by andrewt@cse.unsw.edu.au as a COMP2041 example
+# implementation of /bin/echo
 
+print join(' ', @ARGV), "\n";
+
+#!/usr/bin/perl -w
+
+$str = "hello world are you there";
+
+print split(' ', $str);
+
+#!/usr/bin/perl -w
+
+$x++;
+
+$shadow[4]--;
+
+$jig{'kell'}++;
+
+#!/usr/bin/perl -w
+
+foreach $arg (@ARGV) {
+    print "$arg\n";
+}
+
+#!/usr/bin/perl -w
+
+foreach $i (0..4) {
+    print "$i\n"
+}
+
+#!/usr/bin/perl -w
+
+$count = 0;
+$i = 2;
+while ($i < 100) {
+    $k = $i / 2;
+    $j = 2;
+    while ($j <= $k) {
+        $k = $i % $j;
+        if ($k == 0) {
+            $count = $count - 1;
+            last;
+        }
+        $k = $i / 2;
+        $j = $j + 1;
+    }
+    $count = $count + 1;
+    $i = $i + 1;
+}
+print "$count\n";
+
+#!/usr/bin/perl -w
+
+$n = 1;
+while ($n <= 10) {
+    $total = 0;
+    $j = 1;
+    while ($j <= $n) {
+        $i = 1;
+        while ($i <= $j) {
+            $total = $total + $i;
+            $i = $i + 1;
+        }
+        $j = $j + 1;
+    }
+    print "$total\n";
+    $n = $n + 1;
+}
+
+#!/usr/bin/perl -w
+
+print "Hello there $x jiggs";
 
 
 

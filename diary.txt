@@ -9,3 +9,5 @@ Date	   Start	   Stop	   Activity	            Comments
 01/10    14:00    15:41    Testing & Debugging  Testing all subsets coded thus far.
 02/10    15:00    17:30    Testing & Re-coding  Code improvements. Print, Nested loops, Saving entire translation in array.
 02/10    19:00    20:30    Coding & Testing     Starting up subset 3, chomp and STDIN handles. 
+03/10    09:42    12:30    Coding & Testing     Worked on join, split, ARGV, ++, --.
+03/10    14:30    17:30    Coding & Debugging   Worked on foreach, .., and rest of subset 3.

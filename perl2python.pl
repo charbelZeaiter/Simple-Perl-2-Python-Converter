@@ -21,6 +21,7 @@
 @loopEndIncrementors = ();
 
 $lastSheBangLineNum = 0;
+$importSysFlag = 0;
 ############################################
 
 # Main Loop: Behave like unix filter and read in all lines.
@@ -29,7 +30,7 @@ while ($line = <>)
 	
    # Start matching and translating.
    if ($line =~ /^#!/ ) 
-   {#&& $. == 1
+   {#&& $. == 1------------------------------------------------------------------------CHANGE
       # Detected ShaBang line.
       	
 		# Translate Shebang '#!' line. 
@@ -37,6 +38,7 @@ while ($line = <>)
 		
 		# Saving line number.
 		$lastSheBangLineNum = $#translatedCode;
+		
 	} 
 	elsif ($line =~ /^\s*#+/ || $line =~ /^\s*$/) 
 	{
@@ -63,7 +65,7 @@ while ($line = <>)
 	   
 	   push(@translatedCode, $line);
 	}
-	elsif ($line =~ m/\s*if\s*\(|\s*elsif\s*\(|\s*else\s*\{|\s*while\s*\(|\s*for\s*\(/)
+	elsif ($line =~ m/\s*if\s*\(|\s*elsif\s*\(|\s*else\s*\{|\s*while\s*\(|\s*foreach\s*\(|\s*for\s*/)
 	{
 	   # Detected a control structure.
       
@@ -73,14 +75,14 @@ while ($line = <>)
 	   # I/O handle translation.
 	   $line = parseIOs($line);
 	   
-      # Control structure translation.
-	   $line = parseControlStructures($line);
-	   
-	   # Operator translations which can occur anywhere at any time.
+      # Operator translations which can occur anywhere at any time.
 	   $line = parseOperators($line);
-
+      
 	   # Translate Perl variables.
       $line = checkAndOrTranslateVaribales($line);
+	   
+	   # Control structure translation.
+	   $line = parseControlStructures($line);
 	   
 	   push(@translatedCode, $line);
 	} 
@@ -105,17 +107,6 @@ while ($line = <>)
 	   
 	   push(@translatedCode, $line);
 	}
-	elsif($line =~ m/\s*\{\s*|(\s*)\}\s*/)
-	{
-	   # Detected curly bracket.
-	   
-	   $spaces = $1;
-	   
-	   # Process curly brackets.
-      $line = parseCurlyBrackets($line, $spaces);
-      
-      push(@translatedCode, $line) if($line ne "");
-	}
 	elsif ($line =~ /[\$\@\%]/)
 	{
 	   # Detected Variable line.
@@ -134,6 +125,17 @@ while ($line = <>)
 		
 		push(@translatedCode, $line);
 	} 
+	elsif($line =~ m/^\s*\{\s*|^(\s*)\}\s*/)
+	{
+	   # Detected curly bracket.
+	   
+	   $spaces = $1;
+	   
+	   # Process curly brackets.
+      $line = parseCurlyBrackets($line, $spaces);
+      
+      push(@translatedCode, $line) if($line ne "");
+	}
 	else 
 	{
 	
@@ -174,9 +176,9 @@ sub checkAndOrTranslateVaribales
    
    # Arrays.
    if($inputLine =~ s/([^\\]*?)\@([a-zA-Z_1-9]+?)/$1$2/g)
-   {
+   {  
       # Translate brackets if exists.
-      $inputLine =~ tr/()/[]/;
+      $inputLine =~ s/(\s+)\((.+?)\)/$1[$2]/g;
    }
    
    # Hashes.
@@ -208,8 +210,10 @@ sub parsePrint
 	      
 	   $result = $newSubPart;
    }
-   elsif($line =~ /^(\s*)print\s*\(?"(.*)\\n*"\)?[\s;]*$/)
-   {
+   elsif($line =~ /^(\s*)print\s*\(?"(.*)\\n+"\)?[\s;]*$/)
+   {  
+      # Print statement with newline.
+      
 	   # Get sub part inside print statement.
 	   
       # Process inner strings and varibles.
@@ -218,6 +222,20 @@ sub parsePrint
 	   # Python's print adds a new-line character by default
 	   # so we need to delete it from the Perl print statement.
 	   $result = $1."print ".$newSubPart."\n";
+   }
+   elsif($line =~ /^(\s*)print\s*\(?"(.*)"\)?[\s;]*$/)
+   {  
+      # Print statement without newline.
+      
+	   # Get sub part inside print statement.
+	   
+      # Process inner strings and varibles.
+      $newSubPart = translatePrintSubPart($2);
+      
+      # Import required library if already havent done so.
+      importSys();
+      
+	   $result = $1."sys.stdout.write(".$newSubPart.")\n";
    }
    else
    {
@@ -241,7 +259,7 @@ sub translatePrintSubPart
       # Case: Multiple words.
       
       # Put quotes around all sub parts of srring.
-      $inputLine =~ s/(\s*)([a-zA-Z0-9_\$\:\=]+)(\s*)/"$2"/g;
+      $inputLine =~ s/(\s*)([a-zA-Z0-9_\$\:\=\\]+)(\s*)/"$2"/g;
       
       # Preserve spacing format.
       $inputLine =~ s/(\"\"\$)/ $1/g;
@@ -333,6 +351,26 @@ sub parseOperators
    # Bitwise operators: | ^ & << >> ~ 
    # All are the same as Perl.
    
+   # Check for short hand list generator '..'
+   if($inputLine =~ s/\(?\[?([a-zA-Z0-9]+)\.\.([a-zA-Z0-9]+)\)?\]?/>>>/g)
+   {  
+      # Store new start and stop sequence bits.
+      $start = $1;
+      $stop = $2 + 1;
+      
+      # Split where the sequence code should have been.
+      @part = split('>>>', $inputLine);
+      
+      # Insert translation using 'join'.
+      $inputLine = join("xrange($start, $stop)", @part);
+   }
+   
+   # Short hand increment.
+   $inputLine =~ s/(\$[a-zA-Z0-9_\[\]\'\"\{\}]+)\+\+/$1 = $1 + 1/g;
+   
+   # Short hand decrement.
+   $inputLine =~ s/(\$[a-zA-Z0-9_\[\]\'\"\{\}]+)\-\-/$1 = $1 - 1/g;
+   
    return $inputLine;
 }
 
@@ -342,9 +380,8 @@ sub parseControlStructures
 {
    my ($inputLine) = @_;
    
-   
-   if($inputLine =~ m/^(\s*if|while)\s*\((.*?)\)\s*\{?/)
-   {  
+   if($inputLine =~ m/^(\s*if|\s*while)\s*\((.*?)\)\s*\{?/)
+   {   
       # Translate 'if' or 'while'.      
       $inputLine = $1." ".$2.":\n";
    }
@@ -353,10 +390,24 @@ sub parseControlStructures
       # Translate 'elsif'.
       $inputLine = $1."elif ".$2.":\n";
    }
-   elsif($inputLine =~ m/(\s*)else\s*\{?/)
+   elsif($inputLine =~ m/^(\s*)else\s*\{?/)
    {  
       # Translate 'else'.
-      $inputLine = "else:\n";
+      $inputLine = $1."else:\n";
+   }
+   elsif($inputLine =~ m/^(\s*)foreach\s+([a-zA-Z0-9_]+)\s+(.+)\s+\[/)
+   {  
+      # Translate 'foreach'.
+      $spaces = $1;
+      $iterator = $2;
+      $listPart = $3;
+      
+      # Remove outer brackets.
+      $listPart =~ s/^\((.+)\)$/$1/g;
+      
+      # Note: already halve translated at this point. Just to correct the control structure. 
+      $inputLine = $spaces."for ".$iterator." in ".$listPart.":\n";
+      
    }
    elsif($inputLine =~ m/^(\s*)for\s*\((.*?)\;(.*?)\;(.*?)\)\s*\{?/)
    {  
@@ -368,7 +419,7 @@ sub parseControlStructures
       
       # Save loop incrementor until loop closing brace is detected (same indent of spaces).
       push(@loopEndSpaces, $spaces);
-      push(@loopEndIncrementors, checkAndOrTranslateVaribales($loopIncrementor));
+      push(@loopEndIncrementors, $loopIncrementor);
       
       # Concatinate result t return.
       $inputLine = $spaces.$loopVariable."\n";
@@ -414,10 +465,19 @@ sub parseIOs
    my $result = "";
    
    # Check/Translate STDIN handle .  
-   if($inputLine =~ s/\<STDIN\>\s*\;/sys.stdin.readline()/g)
+   if($inputLine =~ s/\<STDIN\>\s*/sys.stdin.readline()/g)
    {  
-      # Import required Python library, below hashbang (In array).
-      splice(@translatedCode, ($lastSheBangLineNum+1), 0, ("import sys\n")); 
+      importSys();
+   }
+   
+   # Check/Translate ARGV statements. 
+   if($inputLine =~ s/\$ARGV\[(.+?)\]/sys.argv[$1]/g)
+   {  
+      importSys();
+   }
+   elsif($inputLine =~ s/(\s*)\@ARGV(\s*)/$1sys.argv[1:]$2/g)
+   {  
+      importSys();
    }
    
    $result = $inputLine;
@@ -431,12 +491,36 @@ sub parseFunctions
 {  
    my ($inputLine) = @_;
    my $result = "";
-   #    chomp $line;
+   
+   # Translate if exists, the chomp function.
    $inputLine =~ s/(\s*)chomp\s*\(?\s*\$([a-zA-Z0-9_]+)\s*\)?\s*\;/$1$2 = $2.rstrip()/ig;  
+   
+   # Translate if exists, the join function.
+   $inputLine =~ s/join\(?([\'\"].+?[\'\"])\,\s*(.+?)\)/$1.join($2)/;
+   
+   # Translate if exists, the split function.
+   $inputLine =~ s/split\(?([\'\"].+?[\'\"])\,\s*(\$[a-zA-Z0-9_]+)\)?/$2.split($1)/;
    
    $result = $inputLine;
 	
 	return $result;   
 }
+
+# Function which imports 'sys' library and checks if it already imported ################
+#########################################################################################
+sub importSys
+{  
+   #if(!$importSysFlag)--------------------------------------------------------------------------------------CHANGE!!!!!
+   #{
+      # Import required Python library, below hashbang (In array).
+      splice(@translatedCode, ($lastSheBangLineNum+1), 0, ("import sys\n")); 
+         
+      # Check flag so that sys is not imported again.
+      $importSysFlag = 1;
+   #}
+}
+
+
+
 
 
