@@ -11,3 +11,6 @@ Date	   Start	   Stop	   Activity	            Comments
 02/10    19:00    20:30    Coding & Testing     Starting up subset 3, chomp and STDIN handles. 
 03/10    09:42    12:30    Coding & Testing     Worked on join, split, ARGV, ++, --.
 03/10    14:30    17:30    Coding & Debugging   Worked on foreach, .., and rest of subset 3.
+03/10    18:00    19:11    Coding & Testing     Completed subset 3, print without \n etc.
+05/10    10:00    12:30    Coding & Testing     Subset 4, <>, reguler expresions sub and match.
+05/10    14:00             Coding & Testing     Subset 4, improving print, $#ARGV, loop conversion and advanced '..'

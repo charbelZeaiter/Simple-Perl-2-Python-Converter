@@ -21,7 +21,10 @@
 @loopEndIncrementors = ();
 
 $lastSheBangLineNum = 0;
+
 $importSysFlag = 0;
+$importFileInputFlag = 0;
+$importREFlag = 0;
 ############################################
 
 # Main Loop: Behave like unix filter and read in all lines.
@@ -203,11 +206,26 @@ sub parsePrint
    my ($line) = @_;   
    my $result = "";
    
-   # If alternate comma notation exists, remove.
-	if($line =~ s/(^\s*print\s*.*?)\,\s*.*?;/$1;/g)
-	{
-	   $newSubPart = checkAndOrTranslateVaribales($line);
-	      
+   # If alternate comma notation exists, remove and recursivly call function again.
+	if($line =~ m/(^\s*print\s*.*?)[\'\"]?\,\s*[\'\"]?.*?/)
+	{  
+	   # Special Case: Function within print statement.
+	   $line =~ s/(\))\,\s*[\'\"].+[\'\"]/$1/g;
+	   
+	   # Remove all quoations on LHS and comma.
+	   $line =~ s/[\'\"]\,\s*([a-zA-Z0-9_\$\@])/$1/g;
+	   
+	   # Remove all quotations on RHS and comma.
+	   $line =~ s/([a-zA-Z0-9_\$\@])\,\s*[\'\"].+[\'\"]/$1/g;
+	   
+	   # Special case, two variables. Remove comma only.
+	   $line =~ s/([a-zA-Z0-9_])\,\s*([\$\@])/$1$2/g;
+	   
+	   # Case: Two strings, Remove quotations on either side.
+	   $line =~ s/[\'\"]\,\s*[\'\"]//g;
+	   
+	   $newSubPart = parsePrint($line);
+	   	      
 	   $result = $newSubPart;
    }
    elsif($line =~ /^(\s*)print\s*\(?"(.*)\\n+"\)?[\s;]*$/)
@@ -217,7 +235,7 @@ sub parsePrint
 	   # Get sub part inside print statement.
 	   
       # Process inner strings and varibles.
-      $newSubPart = translatePrintSubPart($2);
+      $newSubPart = translatePrintSubPartVer1($2);
       
 	   # Python's print adds a new-line character by default
 	   # so we need to delete it from the Perl print statement.
@@ -230,7 +248,7 @@ sub parsePrint
 	   # Get sub part inside print statement.
 	   
       # Process inner strings and varibles.
-      $newSubPart = translatePrintSubPart($2);
+      $newSubPart = translatePrintSubPartVer2($2);
       
       # Import required library if already havent done so.
       importSys();
@@ -247,9 +265,51 @@ sub parsePrint
    return $result;
 }
 
-# Function which translates the sub parts of a 'print' statement ########################
+# Function which translates the sub parts of a 'print' statement with new line ##########
 #########################################################################################
-sub translatePrintSubPart
+sub translatePrintSubPartVer1
+{  
+   my ($inputLine) = @_;
+   my $result = '';
+   
+   if($inputLine =~ /\s+/)
+   {  
+      # Case: Multiple words.
+     
+      # Put quotes around all sub parts of srring.
+      $inputLine =~ s/(\s*)([a-zA-Z0-9_\$\:\=\\]+)(\s*)/"$2"/g;
+      
+      # Put print concatenation symbols.
+      $inputLine =~ s/\"\"/", "/g;
+      
+      # Unquote variables. 
+      $inputLine =~ s/\"(\$[a-zA-Z_0-9]+)\"/$1/g;
+   
+      # Laslty, translate any variables.
+      $result = checkAndOrTranslateVaribales($inputLine);
+   }
+   else
+   {
+      # Case: 1 word.
+      if($inputLine =~ /\$/)
+      {  
+         # Variable.
+         $result = checkAndOrTranslateVaribales($inputLine);
+      }
+      else
+      {
+         # Not variable.
+         $result = "\"$inputLine\"";
+      }
+   }
+   
+   return $result;
+} 
+
+
+# Function which translates the sub parts of a 'print' statement without new line #######
+#########################################################################################
+sub translatePrintSubPartVer2
 {  
    my ($inputLine) = @_;
    my $result = '';
@@ -298,6 +358,7 @@ sub translatePrintSubPart
    
    return $result;
 } 
+
 
 # Function which translates numeric constants ###########################################
 #########################################################################################
@@ -351,12 +412,21 @@ sub parseOperators
    # Bitwise operators: | ^ & << >> ~ 
    # All are the same as Perl.
    
+   # Translate any '$#ARGV'.
+   $inputLine =~ s/\$\#ARGV/len(sys.argv) - 1/g;
+   
    # Check for short hand list generator '..'
-   if($inputLine =~ s/\(?\[?([a-zA-Z0-9]+)\.\.([a-zA-Z0-9]+)\)?\]?/>>>/g)
+   if($inputLine =~ s/\((.+)\.\.(.+)\)/>>>/g)
    {  
       # Store new start and stop sequence bits.
       $start = $1;
-      $stop = $2 + 1;
+      $stop = $2;
+      
+      # Complete the shift by 1 if argv detected.
+      $start .= " + 1" if($stop =~ m/len\(sys\.argv\)/);
+      
+      # Add 1 to '$stop'.
+      $stop .= " + 1";
       
       # Split where the sequence code should have been.
       @part = split('>>>', $inputLine);
@@ -365,11 +435,32 @@ sub parseOperators
       $inputLine = join("xrange($start, $stop)", @part);
    }
    
+   # Translate any '$#ARGV'.
+   $inputLine =~ s/\$\#ARGV/len(sys.argv) - 1/g;
+   
    # Short hand increment.
-   $inputLine =~ s/(\$[a-zA-Z0-9_\[\]\'\"\{\}]+)\+\+/$1 = $1 + 1/g;
+   $inputLine =~ s/\+\+/ += 1/g;
    
    # Short hand decrement.
-   $inputLine =~ s/(\$[a-zA-Z0-9_\[\]\'\"\{\}]+)\-\-/$1 = $1 - 1/g;
+   $inputLine =~ s/\-\-/ -= 1/g;
+   
+   # Regular expressions.
+   if($inputLine =~ /\s*\$.+?\s+\=\~\s*\/.+\/\;/)
+   {
+      # Translate line.
+      $inputLine =~ s/(\s*)\$(.+?)(\s+)\=\~\s*\/(.+)\/\;/$1$2$3= re.search('$4', $2)/g;
+      
+      # Import 'Re' library.
+      importRE();
+   }
+   elsif($inputLine =~ /\s*\$.+?\s+\=\~\s*s\/.+\/.*?\/[gi]*\;/)
+   {
+      # Translate line.
+      $inputLine =~ s/(\s*)\$(.+?)(\s+)\=\~\s*s\/(.+)\/(.*?)\/[gi]*\;/$1$2$3= re.sub(r'$4', '$5', $2)/g;
+      
+      # Import 'RE' library.
+      importRE();
+   }
    
    return $inputLine;
 }
@@ -464,19 +555,36 @@ sub parseIOs
    my ($inputLine) = @_;
    my $result = "";
    
+   # Translating the '<>' handle inside while loop.
+   if($inputLine =~ s/^(\s*)while\s*\(?\$(.+?)\s*=\s*\<\>\)?\s*\{?/$1for $2 in fileinput.input():/g)
+   {
+      # Import 'fileinput'.
+      importFileInput();
+   }
+ 
+   # Translating the '<STDIN>' handle inside while loop.
+   if($inputLine =~ s/^(\s*)while\s*\(?\$(.+?)\s*=\s*\<STDIN>\)?\s*\{?/$1for $2 in sys.stdin:/g)
+   {
+      # Import 'fileinput'.
+      importSys();
+   }
+   
    # Check/Translate STDIN handle .  
    if($inputLine =~ s/\<STDIN\>\s*/sys.stdin.readline()/g)
    {  
+      # Import 'sys'.
       importSys();
    }
    
    # Check/Translate ARGV statements. 
    if($inputLine =~ s/\$ARGV\[(.+?)\]/sys.argv[$1]/g)
    {  
+      # Import 'sys'.
       importSys();
    }
    elsif($inputLine =~ s/(\s*)\@ARGV(\s*)/$1sys.argv[1:]$2/g)
    {  
+      # Import 'sys'.
       importSys();
    }
    
@@ -492,13 +600,13 @@ sub parseFunctions
    my ($inputLine) = @_;
    my $result = "";
    
-   # Translate if exists, the chomp function.
+   # Translate if exists, the 'chomp' function.
    $inputLine =~ s/(\s*)chomp\s*\(?\s*\$([a-zA-Z0-9_]+)\s*\)?\s*\;/$1$2 = $2.rstrip()/ig;  
    
-   # Translate if exists, the join function.
+   # Translate if exists, the 'join' function.
    $inputLine =~ s/join\(?([\'\"].+?[\'\"])\,\s*(.+?)\)/$1.join($2)/;
    
-   # Translate if exists, the split function.
+   # Translate if exists, the 'split' function.
    $inputLine =~ s/split\(?([\'\"].+?[\'\"])\,\s*(\$[a-zA-Z0-9_]+)\)?/$2.split($1)/;
    
    $result = $inputLine;
@@ -510,17 +618,93 @@ sub parseFunctions
 #########################################################################################
 sub importSys
 {  
-   #if(!$importSysFlag)--------------------------------------------------------------------------------------CHANGE!!!!!
-   #{
-      # Import required Python library, below hashbang (In array).
-      splice(@translatedCode, ($lastSheBangLineNum+1), 0, ("import sys\n")); 
+   # Check that flag hasn't been previously used.
+   if(!$importSysFlag)
+   {
+      if($importFileInputFlag || $importREFlag)
+      {
+         # Other imports exist.
          
+         # Remove currrent 'import' line's new line.
+         chomp($translatedCode[$lastSheBangLineNum+1]);
+         
+         # Append new library to line.
+         $translatedCode[$lastSheBangLineNum+1] .= ", sys\n";
+      }
+      else
+      {
+         # No other imports exist.
+         
+         # Import required Python library, below hashbang (In array).
+         splice(@translatedCode, ($lastSheBangLineNum+1), 0, ("import sys\n")); 
+      }
+      
       # Check flag so that sys is not imported again.
       $importSysFlag = 1;
-   #}
+         
+   }
 }
 
+# Function which imports 'fileinput' library and checks if it already imported ##########
+#########################################################################################
+sub importFileInput
+{  
+   # Check that flag hasn't been previously used.
+   if(!$importFileInputFlag)
+   {
+      if($importSysFlag || $importREFlag)
+      {
+         # Other imports exist.
+         
+         # Remove currrent 'import' line's new line.
+         chomp($translatedCode[$lastSheBangLineNum+1]);
+         
+         # Append new library to line.
+         $translatedCode[$lastSheBangLineNum+1] .= ", fileinput\n";
+      }
+      else
+      {
+         # No other imports exist.
+         
+         # Import required Python library, below hashbang (In array).
+         splice(@translatedCode, ($lastSheBangLineNum+1), 0, ("import fileinput\n")); 
+      }
+      
+      # Check flag so that sys is not imported again.
+      $importFileInputFlag = 1;
+         
+   }
+}
 
-
+# Function which imports 'RE' library and checks if it already imported #################
+#########################################################################################
+sub importRE
+{  
+   # Check that flag hasn't been previously used.
+   if(!$importREFlag)
+   {
+      if($importSysFlag || $importFileInputFlag)
+      {
+         # Other imports exist.
+         
+         # Remove currrent 'import' line's new line.
+         chomp($translatedCode[$lastSheBangLineNum+1]);
+         
+         # Append new library to line.
+         $translatedCode[$lastSheBangLineNum+1] .= ", re\n";
+      }
+      else
+      {
+         # No other imports exist.
+         
+         # Import required Python library, below hashbang (In array).
+         splice(@translatedCode, ($lastSheBangLineNum+1), 0, ("import re\n")); 
+      }
+      
+      # Check flag so that sys is not imported again.
+      $importREFlag = 1;
+         
+   }
+}
 
 

@@ -1,50 +1,54 @@
 #!/usr/bin/python2.7 -u
+import sys, fileinput, re
+
+
 
 answer = 42
 print answer
 
-#!/usr/bin/python2.7 -u
+
 
 answer = 6 * 7
 print answer
 
-#!/usr/bin/python2.7 -u
+
 
 answer = 1 + 7 * 7 - 8
 print answer
 
-#!/usr/bin/python2.7 -u
+
+
 factor0 = 6
 factor1 = 7
 answer = factor0 * factor1
 print answer
 
-#!/usr/bin/python2.7 -u
+
 
 factor0 = 6
 factor1 = 7
 print factor0 * factor1
 
-#!/usr/bin/python2.7 -u
+
 
 DEBUG 0
 LIMIT 5
 
-#!/usr/bin/python2.7 -u
+
 
 x = int("5")
 y = int("20")
 
 print x + y
 
-#!/usr/bin/python2.7 -u
+
 
 x = float("5.5")
 y = float("20.1")
 
 print x + y
 
-#!/usr/bin/python2.7 -u
+
 
 answer = 41
 if answer > 0:
@@ -53,20 +57,21 @@ if answer == 43:
     answer = answer - 1
 print answer
 
-#!/usr/bin/python2.7 -u
+
+
 answer = 0
 while answer < 36:
     answer = answer + 7
 print answer
 
-#!/usr/bin/python2.7 -u
+
 
 x = 1
 while x <= 10:
     print x
     x = x + 1
 
-#!/usr/bin/python2.7 -u
+
 
 x=0
 while x <= 10:
@@ -74,8 +79,6 @@ while x <= 10:
    x=x+1
 
 
-#!/usr/bin/python2.7 -u
-import sys
 
 x=0
 while x <= 10:
@@ -87,50 +90,48 @@ while x <= 10:
       j=j+5
    x=x+1
 
-#!/usr/bin/python2.7 -u
-import sys
+
 
 while 1:
-    print "Give me cookie"
+    print "Give", "me", "cookie"
     line = sys.stdin.readline()
     line = line.rstrip()
     if line == "cookie":
         break
-print "Thank you"
+print "Thank", "you"
 
-#!/usr/bin/python2.7 -u
-import sys
+
+
 # writen by andrewt@cse.unsw.edu.au as a COMP2041 example
 # implementation of /bin/echo
 
 print ' '.join(sys.argv[1:])
 
-#!/usr/bin/python2.7 -u
+
 
 str = "hello world are you there"
 
 print str.split(' ')
 
-#!/usr/bin/python2.7 -u
 
-x = x + 1
 
-shadow[4] = shadow[4] - 1
+x += 1
 
-jig['kell'] = jig['kell'] + 1
+shadow[4] -= 1
 
-#!/usr/bin/python2.7 -u
-import sys
+jig['kell'] += 1
+
+
 
 for arg in sys.argv[1:]:
     print arg
 
-#!/usr/bin/python2.7 -u
 
-for i in xrange(0, 5):
+
+for i in xrange(0, 4 + 1):
     print i
 
-#!/usr/bin/python2.7 -u
+
 
 count = 0
 i = 2
@@ -148,7 +149,7 @@ while i < 100:
     i = i + 1
 print count
 
-#!/usr/bin/python2.7 -u
+
 
 n = 1
 while n <= 10:
@@ -163,10 +164,43 @@ while n <= 10:
     print total
     n = n + 1
 
-#!/usr/bin/python2.7 -u
-import sys
+
 
 sys.stdout.write("Hello there "+x+" jiggs")
+
+
+
+print "Hello", "there"
+
+sys.stdout.write("Hello thereLol")
+
+
+
+for line in fileinput.input():
+    line = line.rstrip()
+    line = re.sub(r'[aeiou]', '', line)
+    print line
+
+
+
+for i in xrange(0 + 1, len(sys.argv) - 1 + 1):
+    print sys.argv[i]
+
+
+
+# written by andrewt@cse.unsw.edu.au as a COMP2041 lecture example
+# Count the number of lines on standard input.
+
+line = ""
+line_count = 0
+for line in sys.stdin:
+    line_count += 1
+print line_count, "lines"
+
+
+
+
+
 
 
 

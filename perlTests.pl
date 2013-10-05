@@ -1,50 +1,53 @@
 #!/usr/bin/perl -w
 
+
+
 $answer = 42;
 print "$answer\n";
 
-#!/usr/bin/perl -w
+
 
 $answer = 6 * 7;
 print "$answer\n";
 
-#!/usr/bin/perl -w
+
 
 $answer = 1 + 7 * 7 - 8;
 print "$answer\n";
 
-#!/usr/bin/perl -w
+
+
 $factor0 = 6;
 $factor1 = 7;
 $answer = $factor0 * $factor1;
 print "$answer\n";
 
-#!/usr/bin/perl -w
+
 
 $factor0 = 6;
 $factor1 = 7;
 print $factor0 * $factor1, "\n";
 
-#!/usr/bin/perl -w
+
 
 use constant DEBUG => 0;
 use constant LIMIT => 5;
 
-#!/usr/bin/perl -w
+
 
 $x = "5";
 $y = "20";
 
 print $x + $y;
 
-#!/usr/bin/perl -w
+
 
 $x = "5.5";
 $y = "20.1";
 
 print $x + $y;
 
-#!/usr/bin/perl -w
+
 
 $answer = 41;
 if ($answer > 0) {
@@ -55,14 +58,15 @@ if ($answer == 43) {
 }
 print "$answer\n";
 
-#!/usr/bin/perl -w
+
+
 $answer = 0;
 while ($answer < 36) {
     $answer = $answer + 7;
 }
 print "$answer\n";
 
-#!/usr/bin/perl -w
+
 
 $x = 1;
 while ($x <= 10) {
@@ -70,14 +74,13 @@ while ($x <= 10) {
     $x = $x + 1;
 }
 
-#!/usr/bin/perl -w
+
 
 for ($x=0;$x <= 10;$x=$x+1) {
    print "$x\n";
 }
 
 
-#!/usr/bin/perl -w
 
 for ($x=0;$x <= 10;$x=$x+1) {
    print "$x\n";
@@ -88,7 +91,7 @@ for ($x=0;$x <= 10;$x=$x+1) {
    }
 }
 
-#!/usr/bin/perl -w
+
 
 while (1) {
     print "Give me cookie\n";
@@ -100,19 +103,20 @@ while (1) {
 }
 print "Thank you\n";
 
-#!/usr/bin/perl -w
+
+
 # writen by andrewt@cse.unsw.edu.au as a COMP2041 example
 # implementation of /bin/echo
 
 print join(' ', @ARGV), "\n";
 
-#!/usr/bin/perl -w
+
 
 $str = "hello world are you there";
 
 print split(' ', $str);
 
-#!/usr/bin/perl -w
+
 
 $x++;
 
@@ -120,19 +124,19 @@ $shadow[4]--;
 
 $jig{'kell'}++;
 
-#!/usr/bin/perl -w
+
 
 foreach $arg (@ARGV) {
     print "$arg\n";
 }
 
-#!/usr/bin/perl -w
+
 
 foreach $i (0..4) {
     print "$i\n"
 }
 
-#!/usr/bin/perl -w
+
 
 $count = 0;
 $i = 2;
@@ -153,7 +157,7 @@ while ($i < 100) {
 }
 print "$count\n";
 
-#!/usr/bin/perl -w
+
 
 $n = 1;
 while ($n <= 10) {
@@ -171,9 +175,46 @@ while ($n <= 10) {
     $n = $n + 1;
 }
 
-#!/usr/bin/perl -w
+
 
 print "Hello there $x jiggs";
+
+
+
+print "Hello there", "\n";
+
+print "Hello there", "Lol";
+
+
+
+while ($line = <>) {
+    chomp $line;
+    $line =~ s/[aeiou]//g;
+    print "$line\n";
+}
+
+
+
+foreach $i (0..$#ARGV) {
+    print "$ARGV[$i]\n";
+}
+
+
+
+# written by andrewt@cse.unsw.edu.au as a COMP2041 lecture example
+# Count the number of lines on standard input.
+
+$line = "";
+$line_count = 0;
+while ($line = <STDIN>) {
+    $line_count++;
+}
+print "$line_count lines\n";
+
+
+
+
+
 
 
 
