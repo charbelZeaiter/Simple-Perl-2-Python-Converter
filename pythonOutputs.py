@@ -199,11 +199,30 @@ print line_count, "lines"
 
 
 
+number = 0
+while number >= 0:
+    print "Enter", "number:"
+    number = float(sys.stdin.readline())
+    if number >= 0:
+        if number % 2 == 0:
+            print "Even"
+        else:
+            print "Odd"
+print "Bye"
 
 
 
-
-
+import sys
+sys.stdout.write("Enter a number: ")
+a = float(sys.stdin.readline())
+if a < 0:
+    print "negative"
+elif a == 0:
+    print "zero"
+elif a < 10:
+    print "small"
+else:
+    print "large"
 
 
 

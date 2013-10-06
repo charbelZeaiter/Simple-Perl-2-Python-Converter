@@ -25,6 +25,8 @@ $lastSheBangLineNum = 0;
 $importSysFlag = 0;
 $importFileInputFlag = 0;
 $importREFlag = 0;
+
+%variableTypeStore = ();
 ############################################
 
 # Main Loop: Behave like unix filter and read in all lines.
@@ -66,6 +68,9 @@ while ($line = <>)
 	   # Call print parsing function.
 	   $line = parsePrint($line);
 	   
+	   # Apply final casting prediction.
+      applyTypeCasting($line);
+
 	   push(@translatedCode, $line);
 	}
 	elsif ($line =~ m/\s*if\s*\(|\s*elsif\s*\(|\s*else\s*\{|\s*while\s*\(|\s*foreach\s*\(|\s*for\s*/)
@@ -87,6 +92,9 @@ while ($line = <>)
 	   # Control structure translation.
 	   $line = parseControlStructures($line);
 	   
+	   # Apply final casting prediction.
+      applyTypeCasting($line);
+      
 	   push(@translatedCode, $line);
 	} 
 	elsif ($line =~ m/^\s*next\;|^\s*last\;/)
@@ -108,6 +116,9 @@ while ($line = <>)
 	   # Parse constant code.
 	   $line = parseNumericConstant($line);
 	   
+	   # Apply final casting prediction.
+      applyTypeCasting($line);
+      
 	   push(@translatedCode, $line);
 	}
 	elsif ($line =~ /[\$\@\%]/)
@@ -126,6 +137,9 @@ while ($line = <>)
       # Translate Perl variables.
       $line = checkAndOrTranslateVaribales($line);
 		
+		# Apply final casting prediction.
+      applyTypeCasting($line);
+      
 		push(@translatedCode, $line);
 	} 
 	elsif($line =~ m/^\s*\{\s*|^(\s*)\}\s*/)
@@ -476,12 +490,12 @@ sub parseControlStructures
       # Translate 'if' or 'while'.      
       $inputLine = $1." ".$2.":\n";
    }
-   elsif($inputLine =~ m/^(\s*)elsif\s*\((.*?)\)\s*\{?/)
+   elsif($inputLine =~ m/^(\s*)\}?\]?\s*elsif\s*\((.*?)\)\s*\{?\[?/)
    {
       # Translate 'elsif'.
       $inputLine = $1."elif ".$2.":\n";
    }
-   elsif($inputLine =~ m/^(\s*)else\s*\{?/)
+   elsif($inputLine =~ m/^(\s*)\}?\]?\s*else\s*\[?\{?/)
    {  
       # Translate 'else'.
       $inputLine = $1."else:\n";
@@ -706,5 +720,56 @@ sub importRE
          
    }
 }
+
+# Function which checks final translation and looks to insert type casting ##############
+#########################################################################################
+sub applyTypeCasting
+{  
+   my ($inputLine) = @_;
+   
+   
+   if($inputLine =~ /^\s*([a-zA-Z_0-9]+)\s*\=\s*(sys\.stdin\.readline\(\))\s*$/)
+   {
+      if(!exists $variableTypeStore{"$1"})
+      {
+         # Detected potential type cast.
+         $variableTypeStore{"$1"} = $#translatedCode+1;  
+      }
+   }
+   elsif($inputLine =~ /\s*([a-zA-Z_0-9]+)\s*[\=\>\<\!]+\s*[a-zA-Z\'\"\.\(\)]/)
+   {
+      # Do nothing.
+   }
+   elsif($inputLine =~ /\s*([a-zA-Z_0-9]+)\s*[\=\>\<\!]+/)
+   {
+      if(exists $variableTypeStore{"$1"})
+      { 
+         my $varId = $1;
+         my $lineNum = $variableTypeStore{"$varId"};
+         
+         $lineToModify = $translatedCode[$lineNum];
+         
+         $lineToModify =~ s/(\s*[a-zA-Z_0-9]+\s*\=\s*)(.+)/$1float($2)/;
+         
+         $translatedCode[$lineNum] = $lineToModify;
+         
+            
+         delete $variableTypeStore{"$varId"};
+        
+      }
+   }
+   
+}
+
+
+
+
+
+
+
+
+
+
+
 
 

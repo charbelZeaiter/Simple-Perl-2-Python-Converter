@@ -213,11 +213,33 @@ print "$line_count lines\n";
 
 
 
+$number = 0;
+while ($number >= 0) {
+    print "Enter number:\n";
+    $number = <STDIN>;
+    if ($number >= 0) {
+        if ($number % 2 == 0) {
+            print "Even\n";
+        } else {
+            print "Odd\n";
+        }
+    }
+}
+print "Bye\n";
 
 
 
-
-
+print "Enter a number: ";
+$a = <STDIN>;
+if ($a < 0) {
+    print "negative\n";
+} elsif ($a == 0) {
+    print "zero\n";
+} elsif ($a < 10) {
+    print "small\n";
+} else {
+    print "large\n";
+}
 
 
 
