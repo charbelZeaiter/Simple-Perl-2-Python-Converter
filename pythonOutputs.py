@@ -1,5 +1,5 @@
 #!/usr/bin/python2.7 -u
-import sys, fileinput, re
+import sys, fileinput, re, copy
 
 
 
@@ -212,8 +212,7 @@ print "Bye"
 
 
 
-import sys
-sys.stdout.write("Enter a number: ")
+sys.stdout.write("Enter a number:")
 a = float(sys.stdin.readline())
 if a < 0:
     print "negative"
@@ -223,6 +222,72 @@ elif a < 10:
     print "small"
 else:
     print "large"
+
+
+
+hash = {}
+
+x = 30
+y = x % 4
+
+
+q = 2
+z = x % q
+
+hash["q"] = z
+
+if 4 % 3:
+   print hash["q"]
+   print y
+
+
+
+myArr = []
+x = "Hello"
+list = [4, 5, 6]
+myArr.append(x)
+print myArr
+myArr.append(989)
+print myArr
+myArr.append("gigs")
+print myArr
+myArr.extend(list)
+print myArr
+v = myArr.pop()
+print v
+print myArr
+k = myArr.pop(0)
+print k
+print myArr
+myArr.insert(0, "33")
+print myArr
+arrNew = [1,2,3]
+_temp = myArr
+myArr = arrNew
+myArr.extend(_temp)
+print myArr
+myArr2 = copy.deepcopy(myArr)
+myArr2.reverse()
+print myArr2
+print myArr
+myArr.reverse()
+print myArr
+
+
+
+x = "hello "
+
+y = "!!!!"
+k = "juggs"
+c = 34
+
+x += str(str(c)+"The"+"brown"+"fox"+str(c)+str(y)+"over"+"fence"+str(k))
+
+h = str(c)+"The"+"brown"+"fox"+str(c)+str(y)+"over"+"fence"+str(k)
+
+print x
+
+print h
 
 
 

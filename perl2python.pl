@@ -25,6 +25,7 @@ $lastSheBangLineNum = 0;
 $importSysFlag = 0;
 $importFileInputFlag = 0;
 $importREFlag = 0;
+$importCopyFlag = 0;
 
 %variableTypeStore = ();
 ############################################
@@ -157,7 +158,7 @@ while ($line = <>)
 	{
 	
 		# Lines that can't be translated are turned into comments.
-		push(@translatedCode, "# Could not translate: \"".$line."\"\n");
+		push(@translatedCode, "# Could not translate: |".$line."|\n");
 		
 	} 
 	
@@ -179,7 +180,7 @@ sub checkAndOrTranslateVaribales
    my ($inputLine) = @_;
 
    # Scalers.
-   if($inputLine =~ s/([^\\]*?)\$([a-zA-Z_1-9]+?)/$1$2/g)
+   if($inputLine =~ s/\$([a-zA-Z_1-9]+)/$1/g)
    {
       # Translate brackets for hash scalers, if exists.
       $inputLine =~ tr/{}/[]/;
@@ -192,17 +193,30 @@ sub checkAndOrTranslateVaribales
    }
    
    # Arrays.
-   if($inputLine =~ s/([^\\]*?)\@([a-zA-Z_1-9]+?)/$1$2/g)
+   if($inputLine =~ s/\@([a-zA-Z_1-9]+)/$1/g)
    {  
+      $varName = $1;
+      
       # Translate brackets if exists.
-      $inputLine =~ s/(\s+)\((.+?)\)/$1[$2]/g;
+      $inputLine =~ s/$varName\((.+?)\)/[$1]/g;
+      
+      # Translate brackets if exists.
+      $inputLine =~ s/ \((.*?)\)/ [$1]/g;
    }
    
    # Hashes.
-   if($inputLine =~ s/([^\\]*?)\%([a-zA-Z_1-9]+?)/$1$2/g)
+   if($inputLine =~ s/\%([a-zA-Z_1-9]+)/$1/g)
    {
-      # Translate brackets and hash connectors, if exists.
-      $inputLine =~ tr/()/{}/;
+      $varName = $1;
+      
+      # Translate brackets if exists.
+      $inputLine =~ s/$varName\{(.+?)\}{(.+?)\}/[$1][$2]/g;
+      
+      # Translate brackets if exists.
+      $inputLine =~ s/$varName\{(.+?)\}/[$1]/g;
+      
+      # Translate brackets if exists.
+      $inputLine =~ s/ \((.*?)\)/ {$1}/g;
       
       $inputLine =~ s/\=\>/:/g;
    }
@@ -223,6 +237,9 @@ sub parsePrint
    # If alternate comma notation exists, remove and recursivly call function again.
 	if($line =~ m/(^\s*print\s*.*?)[\'\"]?\,\s*[\'\"]?.*?/)
 	{  
+	   # Capture original line in.
+	   $originalLine = $line;
+	   
 	   # Special Case: Function within print statement.
 	   $line =~ s/(\))\,\s*[\'\"].+[\'\"]/$1/g;
 	   
@@ -230,7 +247,7 @@ sub parsePrint
 	   $line =~ s/[\'\"]\,\s*([a-zA-Z0-9_\$\@])/$1/g;
 	   
 	   # Remove all quotations on RHS and comma.
-	   $line =~ s/([a-zA-Z0-9_\$\@])\,\s*[\'\"].+[\'\"]/$1/g;
+	   $line =~ s/([a-zA-Z0-9_\$\}\]\)])\,\s*[\'\"].+[\'\"]/$1/g;
 	   
 	   # Special case, two variables. Remove comma only.
 	   $line =~ s/([a-zA-Z0-9_])\,\s*([\$\@])/$1$2/g;
@@ -238,9 +255,20 @@ sub parsePrint
 	   # Case: Two strings, Remove quotations on either side.
 	   $line =~ s/[\'\"]\,\s*[\'\"]//g;
 	   
-	   $newSubPart = parsePrint($line);
-	   	      
-	   $result = $newSubPart;
+	   
+	   # Protection against infinit recursion. If no change detected, then return 'cant translate'.
+	   if($originalLine eq $line)
+	   {
+	      chomp($line);
+	      $line = "# Could not translate: |".$line."|\n";
+	   }
+	   else
+	   {
+	      $line = parsePrint($line);
+	   }
+	   
+	   $result = $line;
+	   
    }
    elsif($line =~ /^(\s*)print\s*\(?"(.*)\\n+"\)?[\s;]*$/)
    {  
@@ -289,7 +317,7 @@ sub translatePrintSubPartVer1
    if($inputLine =~ /\s+/)
    {  
       # Case: Multiple words.
-     
+      
       # Put quotes around all sub parts of srring.
       $inputLine =~ s/(\s*)([a-zA-Z0-9_\$\:\=\\]+)(\s*)/"$2"/g;
       
@@ -297,15 +325,15 @@ sub translatePrintSubPartVer1
       $inputLine =~ s/\"\"/", "/g;
       
       # Unquote variables. 
-      $inputLine =~ s/\"(\$[a-zA-Z_0-9]+)\"/$1/g;
-   
+      $inputLine =~ s/\"([\$\@][a-zA-Z_0-9]+)\"/$1/g;
+      
       # Laslty, translate any variables.
       $result = checkAndOrTranslateVaribales($inputLine);
    }
    else
    {
       # Case: 1 word.
-      if($inputLine =~ /\$/)
+      if($inputLine =~ /[\$\@]/)
       {  
          # Variable.
          $result = checkAndOrTranslateVaribales($inputLine);
@@ -449,9 +477,6 @@ sub parseOperators
       $inputLine = join("xrange($start, $stop)", @part);
    }
    
-   # Translate any '$#ARGV'.
-   $inputLine =~ s/\$\#ARGV/len(sys.argv) - 1/g;
-   
    # Short hand increment.
    $inputLine =~ s/\+\+/ += 1/g;
    
@@ -459,22 +484,46 @@ sub parseOperators
    $inputLine =~ s/\-\-/ -= 1/g;
    
    # Regular expressions.
-   if($inputLine =~ /\s*\$.+?\s+\=\~\s*\/.+\/\;/)
+   if($inputLine =~ /\s*\$.+?\s+\=\~\s*m?\/.+\/\;?/)
    {
       # Translate line.
-      $inputLine =~ s/(\s*)\$(.+?)(\s+)\=\~\s*\/(.+)\/\;/$1$2$3= re.search('$4', $2)/g;
+      $inputLine =~ s/(\s*)\$(.+?)(\s+)\=\~\s*\/(.+)\/\;?/$1$2$3= re.search('$4', $2)/g;
       
       # Import 'Re' library.
       importRE();
    }
-   elsif($inputLine =~ /\s*\$.+?\s+\=\~\s*s\/.+\/.*?\/[gi]*\;/)
+   elsif($inputLine =~ /\s*\$.+?\s+\=\~\s*s\/.+\/.*?\/[gi]*\;?/)
    {
       # Translate line.
-      $inputLine =~ s/(\s*)\$(.+?)(\s+)\=\~\s*s\/(.+)\/(.*?)\/[gi]*\;/$1$2$3= re.sub(r'$4', '$5', $2)/g;
+      $inputLine =~ s/(\s*)\$(.+?)(\s+)\=\~\s*s\/(.+)\/(.*?)\/[gi]*\;?/$1$2$3= re.sub(r'$4', '$5', $2)/g;
       
       # Import 'RE' library.
       importRE();
    }
+   
+   # Translate concatenation '.' to '+'.
+   if($inputLine =~ /^[^\(\)]+$/)
+   {
+      # Make sure there are no functions, hence parenthesis.
+      
+      # With Strings on both sides.
+      $inputLine =~ s/([\'\"])\.([\'\"])/$1+$2/g;
+      
+      # With String on LHS and variable on RHS.
+      $inputLine =~ s/([\'\"])\.(\$[a-zA-Z_0-9\[\]\{\}]+)/$1+str($2)/g;
+      
+      # With variable on LHS and String on RHS.
+      $inputLine =~ s/(\$[a-zA-Z_0-9\[\]\{\}]+)\.([\'\"])/str($1)+$2/g;
+      
+      # With variable on both sides.
+      $inputLine =~ s/(\$[a-zA-Z_0-9\[\]\{\}]+)\.(\$[a-zA-Z_0-9\[\]\{\}]+)/str($1)+str($2)/g;
+      
+      # Convert left over '.' operators
+      $inputLine =~ s/\)\.(s|\'|\")/)+$1/g;
+   }
+   
+   # Translate '.=' to '+='
+   $inputLine =~ s/(\s*)\.\=\s*([^\;]+)/$1+= str($2)/;   
    
    return $inputLine;
 }
@@ -623,6 +672,49 @@ sub parseFunctions
    # Translate if exists, the 'split' function.
    $inputLine =~ s/split\(?([\'\"].+?[\'\"])\,\s*(\$[a-zA-Z0-9_]+)\)?/$2.split($1)/;
    
+   # Translate if exists, the 'push' function with variable.
+   $inputLine =~ s/push\(\@([a-zA-Z0-9_]+),\s*([\$\'\"a-zA-Z0-9_]+)\)/$1.append($2)/;
+   
+   # Translate if exists, the 'push' function with list.
+   $inputLine =~ s/push\(\@([a-zA-Z0-9_]+),\s*(\@[a-zA-Z0-9_]+)\)/$1.extend($2)/;
+   
+   # Translate if exists, the 'pop' function.
+   $inputLine =~ s/pop\(\@([a-zA-Z0-9_]+)\)/$1.pop()/;
+   
+   # Translate if exists, the 'shift' function.
+   $inputLine =~ s/shift\(\@([a-zA-Z0-9_]+)\)/$1.pop(0)/;
+   
+   # Translate if exists, the 'unshift' function with variable.
+   $inputLine =~ s/unshift\(\@([a-zA-Z0-9_]+),\s*([\$\'\"a-zA-Z0-9_]+)\)/$1.insert(0, $2)/;
+   
+   # Translate if exists, the 'unshift' function with list.
+   if($inputLine =~ /(\s*)unshift\(\@([a-zA-Z0-9_]+),\s*(\@[a-zA-Z0-9_]+)\)/)
+   {
+      # Swap references around to perform an equivalant opperation. 
+      $inputLine = $1."_temp = ".$2."\n";
+      $inputLine .= $1.$2." = ".$3."\n";
+      $inputLine .= $1.$2.".extend(_temp)\n";
+   }
+   
+   # Translate if exists, the 'reverse' function.
+   if($inputLine =~ /(\s*)\@([a-zA-Z0-9_]+)\s*\=\s*reverse\(\@([a-zA-Z0-9_]+)\)/)
+   {  
+      if($2 eq $3)
+      {  
+         # Assignment variable has same name as array to change, so reverse in place.
+         $inputLine = $1.$2.".reverse()\n";
+      }
+      else
+      {  
+         # Assignment variables name is different to array name, copy array then reverse in new variable.
+         $inputLine = $1.$2." = copy.deepcopy(".$3.")\n";
+         $inputLine .= $1.$2.".reverse()\n";
+         
+         # Import 'copy'.
+         importCopy();
+      }
+   }
+   
    $result = $inputLine;
 	
 	return $result;   
@@ -635,7 +727,7 @@ sub importSys
    # Check that flag hasn't been previously used.
    if(!$importSysFlag)
    {
-      if($importFileInputFlag || $importREFlag)
+      if($importFileInputFlag || $importREFlag || $importCopyFlag)
       {
          # Other imports exist.
          
@@ -666,7 +758,7 @@ sub importFileInput
    # Check that flag hasn't been previously used.
    if(!$importFileInputFlag)
    {
-      if($importSysFlag || $importREFlag)
+      if($importSysFlag || $importREFlag || $importCopyFlag)
       {
          # Other imports exist.
          
@@ -697,7 +789,7 @@ sub importRE
    # Check that flag hasn't been previously used.
    if(!$importREFlag)
    {
-      if($importSysFlag || $importFileInputFlag)
+      if($importSysFlag || $importFileInputFlag || $importCopyFlag)
       {
          # Other imports exist.
          
@@ -721,39 +813,78 @@ sub importRE
    }
 }
 
-# Function which checks final translation and looks to insert type casting ##############
+
+# Function which imports 'Copy' library and checks if it already imported ###############
+#########################################################################################
+sub importCopy
+{  
+   # Check that flag hasn't been previously used.
+   if(!$importCopyFlag)
+   {
+      if($importSysFlag || $importFileInputFlag || $importREFlag)
+      {
+         # Other imports exist.
+         
+         # Remove currrent 'import' line's new line.
+         chomp($translatedCode[$lastSheBangLineNum+1]);
+         
+         # Append new library to line.
+         $translatedCode[$lastSheBangLineNum+1] .= ", copy\n";
+      }
+      else
+      {
+         # No other imports exist.
+         
+         # Import required Python library, below hashbang (In array).
+         splice(@translatedCode, ($lastSheBangLineNum+1), 0, ("import copy\n")); 
+      }
+      
+      # Check flag so that sys is not imported again.
+      $importCopyFlag = 1;
+         
+   }
+}
+
+
+# Function which checks translation for casting before its pushed onto the array ########
 #########################################################################################
 sub applyTypeCasting
 {  
    my ($inputLine) = @_;
    
-   
    if($inputLine =~ /^\s*([a-zA-Z_0-9]+)\s*\=\s*(sys\.stdin\.readline\(\))\s*$/)
-   {
+   {  
+      # Check for input into program.
+      
+      # If variable for input hasnt been stored, store it for potential type casting.
       if(!exists $variableTypeStore{"$1"})
       {
          # Detected potential type cast.
          $variableTypeStore{"$1"} = $#translatedCode+1;  
       }
    }
-   elsif($inputLine =~ /\s*([a-zA-Z_0-9]+)\s*[\=\>\<\!]+\s*[a-zA-Z\'\"\.\(\)]/)
-   {
-      # Do nothing.
-   }
-   elsif($inputLine =~ /\s*([a-zA-Z_0-9]+)\s*[\=\>\<\!]+/)
-   {
+   elsif($inputLine =~ /\s*([a-zA-Z_0-9]+)\s*([\+\*\/\%\-0-9]+\s*)*[\=\>\<\!]+(\s*[\+\*\/\%\-0-9]+)+/)
+   {  
+      # Check later down in the code for explicit variable type use (as an Int, Float etc).
+      
+      # Detected that variable is used as an Int, Float. 
+      
+      # If variable was previously saved and is part of input casting.
       if(exists $variableTypeStore{"$1"})
       { 
          my $varId = $1;
          my $lineNum = $variableTypeStore{"$varId"};
          
+         # Get input line to cast.
          $lineToModify = $translatedCode[$lineNum];
          
+         # Cast line.
          $lineToModify =~ s/(\s*[a-zA-Z_0-9]+\s*\=\s*)(.+)/$1float($2)/;
          
+         # Insert new line into translated code.
          $translatedCode[$lineNum] = $lineToModify;
          
-            
+         # Delete variable cast reference (to only cast 'input line' once).   
          delete $variableTypeStore{"$varId"};
         
       }

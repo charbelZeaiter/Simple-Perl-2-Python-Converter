@@ -15,4 +15,8 @@ Date	   Start	   Stop	   Activity	            Comments
 05/10    10:00    12:30    Coding & Testing     Subset 4, <>, reguler expresions sub and match.
 05/10    14:00    17:30    Coding & Testing     Half completed subset 4, improving print, $#ARGV, loop conversion and advanced '..'
 06/10    18:30    23:01    Testing & Debugging  Float type casting.
+07/10    09:19    12:30    Coding & Testing     Float type casting, %, hash printing, push.
+07/10    14:00    17:00    Coding & Testing     Pop, unshift, shift, reverse, push with lists, '.='.
+07/10    21:00    22:00    Coding & Testing     '.' concatenation and starting subset 5.
+08/10    08:30    11:30    Coding & Testing     Subset 5, 'open' function.
 
