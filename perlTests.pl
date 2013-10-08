@@ -308,4 +308,38 @@ print "$h\n";
 
 
 
+open(F, ">test.txt");
+
+$x = 1;
+
+print F "$x Hello there young one!\n";
+
+
+
+@cache = ();
+
+open(F, "<test.txt");
+
+foreach $line (<F>)
+{
+   push(@cache, $line);
+}
+
+print @cache;
+
+
+
+$x = 666;
+
+print "$x dfsf"."jndkjna";
+
+print "$x dfsf"."jndkjna\n";
+
+
+
+
+
+
+
+
 

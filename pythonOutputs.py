@@ -281,13 +281,45 @@ y = "!!!!"
 k = "juggs"
 c = 34
 
-x += str(str(c)+"The"+"brown"+"fox"+str(c)+str(y)+"over"+"fence"+str(k))
+x += str(c)+"The"+"brown"+"fox"+str(c)+str(y)+"over"+"fence"+str(k)
 
 h = str(c)+"The"+"brown"+"fox"+str(c)+str(y)+"over"+"fence"+str(k)
 
 print x
 
 print h
+
+
+
+F = open("test.txt", "w")
+
+x = 1
+
+F.write(str(x)+" "+"Hello"+" "+"there"+" "+"young"+" "+"one!\n")
+
+
+
+cache = []
+
+F = open("test.txt", "r")
+
+for line in F:
+   cache.append(line)
+
+print cache
+
+
+
+x = 666
+
+sys.stdout.write(x+" dfsfjndkjna")
+
+print x, "dfsf"+"jndkjna"
+
+
+
+
+
 
 
 

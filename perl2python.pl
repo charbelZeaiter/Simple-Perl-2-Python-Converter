@@ -33,10 +33,9 @@ $importCopyFlag = 0;
 # Main Loop: Behave like unix filter and read in all lines.
 while ($line = <>)
 {
-	
    # Start matching and translating.
-   if ($line =~ /^#!/ ) 
-   {#&& $. == 1------------------------------------------------------------------------CHANGE
+   if ($line =~ /^#!/ && $. == 1) 
+   {
       # Detected ShaBang line.
       	
 		# Translate Shebang '#!' line. 
@@ -71,7 +70,7 @@ while ($line = <>)
 	   
 	   # Apply final casting prediction.
       applyTypeCasting($line);
-
+      
 	   push(@translatedCode, $line);
 	}
 	elsif ($line =~ m/\s*if\s*\(|\s*elsif\s*\(|\s*else\s*\{|\s*while\s*\(|\s*foreach\s*\(|\s*for\s*/)
@@ -122,7 +121,7 @@ while ($line = <>)
       
 	   push(@translatedCode, $line);
 	}
-	elsif ($line =~ /[\$\@\%]/)
+	elsif ($line =~ /[\$\@\%]|open\(/)
 	{
 	   # Detected Variable line.
 	   
@@ -170,6 +169,9 @@ foreach $line (@translatedCode)
 {
    print $line;
 }
+
+
+# Functions #######################################################################################
 
 
 # Function which translates variables ###################################################
@@ -227,6 +229,7 @@ sub checkAndOrTranslateVaribales
    return $inputLine;
 }
 
+
 # Function which handles overall parsing of the 'print' statement #######################
 #########################################################################################
 sub parsePrint
@@ -255,7 +258,6 @@ sub parsePrint
 	   # Case: Two strings, Remove quotations on either side.
 	   $line =~ s/[\'\"]\,\s*[\'\"]//g;
 	   
-	   
 	   # Protection against infinit recursion. If no change detected, then return 'cant translate'.
 	   if($originalLine eq $line)
 	   {
@@ -270,35 +272,81 @@ sub parsePrint
 	   $result = $line;
 	   
    }
+   elsif($line =~ /^\s*print\s*([^\+\s]+\+[^\+\s]+)+/)
+   {  
+      # Print statement that has already been prepared by the operator function.
+	   
+	   # Remove newline if exists
+      if($line =~ s/\\n[\"\']\s*\;?$/";/g)
+      {  
+         # Remove extra quotes with plus after removed '\n'.
+         $line =~ s/\+[\'\"]{2}\s*\;$//g;
+	   }
+	   else
+	   {
+	      
+	      # If no new line exists nativly, call 'write' method.
+	      
+	      # Import required library if already havent done so.
+         importSys();
+         
+         # Modify convert 'print' to 'write'.
+	      $line =~ s/^(\s*)print\s*\(?/$1sys.stdout.write(/;
+	      $line =~ s/\;/)/;
+	      
+	   }
+	   
+	   # Translate any variables.
+	   $line = checkAndOrTranslateVaribales($line);
+	   
+	   $result = $line;
+   }
    elsif($line =~ /^(\s*)print\s*\(?"(.*)\\n+"\)?[\s;]*$/)
    {  
       # Print statement with newline.
-      
-	   # Get sub part inside print statement.
 	   
       # Process inner strings and varibles.
-      $newSubPart = translatePrintSubPartVer1($2);
+      $newSubPart = translatePrintSubPartWithNewline($2);
       
 	   # Python's print adds a new-line character by default
 	   # so we need to delete it from the Perl print statement.
 	   $result = $1."print ".$newSubPart."\n";
    }
-   elsif($line =~ /^(\s*)print\s*\(?"(.*)"\)?[\s;]*$/)
+   elsif($line =~ m/^(\s*)print\s+([a-zA-Z0-9_]+)\s+[\'\"](.+?)[\'\"]\s*\;/)
+   {
+      # Check for prints that write out to a file.
+      $innerPart = $3;
+      $fileHandle = $2;
+      $spaces = $1;
+      
+      # Process inner strings and varibles.
+      $newInnerPart = convertSinglePerlOutputString($innerPart);
+      
+	   $result = $spaces.$fileHandle.".write(".$newInnerPart.")\n";
+   }
+   elsif($line =~ /^(\s*)print\s*\(?\"(.*?)\"\)?[\s;]*$/)
    {  
       # Print statement without newline.
-      
-	   # Get sub part inside print statement.
-	   
+
       # Process inner strings and varibles.
-      $newSubPart = translatePrintSubPartVer2($2);
+      $newSubPart = translatePrintSubPartWithoutNewline($2);
       
       # Import required library if already havent done so.
       importSys();
       
 	   $result = $1."sys.stdout.write(".$newSubPart.")\n";
    }
-   else
+   elsif($line =~ /^(\s*)print\s*\(?[\$]([a-zA-Z0-9_]+)\)?\s*\;?$/)
    {
+      # Detected a single varibale only without a newline.
+      
+      # Import required library if already havent done so.
+      importSys();
+      
+      $result = $1."sys.stdout.write(str(".$2."))\n";
+   }
+   else
+   { 
       $newSubPart = checkAndOrTranslateVaribales($line);
 	      
 	   $result = $newSubPart;
@@ -307,19 +355,20 @@ sub parsePrint
    return $result;
 }
 
+
 # Function which translates the sub parts of a 'print' statement with new line ##########
 #########################################################################################
-sub translatePrintSubPartVer1
+sub translatePrintSubPartWithNewline
 {  
    my ($inputLine) = @_;
    my $result = '';
    
    if($inputLine =~ /\s+/)
    {  
-      # Case: Multiple words.
+      # Case: Multiple words (multiple spaces between them).
       
       # Put quotes around all sub parts of srring.
-      $inputLine =~ s/(\s*)([a-zA-Z0-9_\$\:\=\\]+)(\s*)/"$2"/g;
+      $inputLine =~ s/(\s*)([a-zA-Z0-9_\$\:\=\\\+\'\"]+)(\s*)/"$2"/g;
       
       # Put print concatenation symbols.
       $inputLine =~ s/\"\"/", "/g;
@@ -351,17 +400,17 @@ sub translatePrintSubPartVer1
 
 # Function which translates the sub parts of a 'print' statement without new line #######
 #########################################################################################
-sub translatePrintSubPartVer2
+sub translatePrintSubPartWithoutNewline
 {  
    my ($inputLine) = @_;
    my $result = '';
    
    if($inputLine =~ /\s+/)
    {  
-      # Case: Multiple words.
+      # Case: Multiple words (multiple spaces between them).
       
       # Put quotes around all sub parts of srring.
-      $inputLine =~ s/(\s*)([a-zA-Z0-9_\$\:\=\\]+)(\s*)/"$2"/g;
+      $inputLine =~ s/(\s*)([a-zA-Z0-9_\$\:\=\\\+\'\"]+)(\s*)/"$2"/g;
       
       # Preserve spacing format.
       $inputLine =~ s/(\"\"\$)/ $1/g;
@@ -369,17 +418,17 @@ sub translatePrintSubPartVer2
       
       # Put concatenation symbols.
       $inputLine =~ s/\"\"/"+"/g;
-      
+
       # Unquote variables. 
       $inputLine =~ s/\"(\$[a-zA-Z_0-9]+)\"/$1/g;
-      
+
       # Trim any '+' signs at begining or end of string.
       $inputLine =~ s/^\++//;
       $inputLine =~ s/\++$//;
-      
+
       # Remove all uneeded quote markers. '"+"'
       $inputLine =~ s/\"\+\"//g;
-   
+
       # Laslty, translate any variables.
       $result = checkAndOrTranslateVaribales($inputLine);
    }
@@ -416,6 +465,7 @@ sub parseNumericConstant
    
    return $result;  
 }
+
 
 # Function which translates logical, comparison and bitwise operators ###################
 #########################################################################################
@@ -502,31 +552,33 @@ sub parseOperators
    }
    
    # Translate concatenation '.' to '+'.
-   if($inputLine =~ /^[^\(\)]+$/)
+   if($inputLine !~ /[a-zA-Z0-9_]\(.*?\)/)
    {
       # Make sure there are no functions, hence parenthesis.
-      
+
       # With Strings on both sides.
       $inputLine =~ s/([\'\"])\.([\'\"])/$1+$2/g;
-      
-      # With String on LHS and variable on RHS.
-      $inputLine =~ s/([\'\"])\.(\$[a-zA-Z_0-9\[\]\{\}]+)/$1+str($2)/g;
-      
-      # With variable on LHS and String on RHS.
-      $inputLine =~ s/(\$[a-zA-Z_0-9\[\]\{\}]+)\.([\'\"])/str($1)+$2/g;
-      
+
       # With variable on both sides.
       $inputLine =~ s/(\$[a-zA-Z_0-9\[\]\{\}]+)\.(\$[a-zA-Z_0-9\[\]\{\}]+)/str($1)+str($2)/g;
-      
+
+      # With String on LHS and variable on RHS.
+      $inputLine =~ s/([\'\"])\.(\$[a-zA-Z_0-9\[\]\{\}]+)/$1+str($2)/g;
+
+      # With variable on LHS and String on RHS.
+      $inputLine =~ s/(\$[a-zA-Z_0-9\[\]\{\}]+)\.([\'\"])/str($1)+$2/g;
+
       # Convert left over '.' operators
-      $inputLine =~ s/\)\.(s|\'|\")/)+$1/g;
+      $inputLine =~ s/(\)|\'|\")\.(s|\'|\")/$1+$2/g;
+      
    }
    
    # Translate '.=' to '+='
-   $inputLine =~ s/(\s*)\.\=\s*([^\;]+)/$1+= str($2)/;   
+   $inputLine =~ s/(\s*)\.\=\s*([^\;]+)/$1+= $2/;   
    
    return $inputLine;
 }
+
 
 # Function which translates perl control structures #####################################
 #########################################################################################
@@ -549,7 +601,7 @@ sub parseControlStructures
       # Translate 'else'.
       $inputLine = $1."else:\n";
    }
-   elsif($inputLine =~ m/^(\s*)foreach\s+([a-zA-Z0-9_]+)\s+(.+)\s+\[/)
+   elsif($inputLine =~ m/^(\s*)foreach\s+([a-zA-Z0-9_]+)\s+(.+)\s+\[?/)
    {  
       # Translate 'foreach'.
       $spaces = $1;
@@ -557,7 +609,10 @@ sub parseControlStructures
       $listPart = $3;
       
       # Remove outer brackets.
-      $listPart =~ s/^\((.+)\)$/$1/g;
+      $listPart =~ s/^\((.+)\)/$1/;
+      
+      # Remove ending space and bracket.
+      $listPart =~ s/\s*\[?$//;
       
       # Note: already halve translated at this point. Just to correct the control structure. 
       $inputLine = $spaces."for ".$iterator." in ".$listPart.":\n";
@@ -583,6 +638,7 @@ sub parseControlStructures
    
    return $inputLine;
 }
+
 
 # Function which processes perl curly brackets ##########################################
 #########################################################################################
@@ -610,6 +666,7 @@ sub parseCurlyBrackets
 	
 	return $result;   
 }
+
 
 # Function which translates Perl I/O handles ############################################
 #########################################################################################
@@ -651,10 +708,14 @@ sub parseIOs
       importSys();
    }
    
+   # Tranlate any left over handles.
+   $inputLine =~ s/\s*\<([a-zA-Z0-9_])\>\s*/$1/g;
+   
    $result = $inputLine;
 	
 	return $result;   
 }
+
 
 # Function which translates Perl functions into Python functions ########################
 #########################################################################################
@@ -714,11 +775,57 @@ sub parseFunctions
          importCopy();
       }
    }
+ 
+   # Translate 'open' function.
+   if($inputLine =~ /^(\s*)open\(\<?([a-zA-Z0-9_]+)\>?\,\s*[\'\"]([rwa\+\<\>]+)(.+?)[\'\"]\)\;/)
+   {  
+      $spaces = $1;
+      $fileHandle = $2;
+      $accessTypes = $3;
+      $file = $4;
+      
+      # Convert access Types.
+      if($accessTypes =~ /\+\>\>|a\+/)
+      {
+         # '+>>' or 'a+'   Reads, Writes, Appends, and Creates to > 'ab+'.
+         $accessTypes = "a+";
+      } 
+      elsif($accessTypes =~ /\+\>|w\+/)
+      {
+         # +> or w+ 	Reads, Writes, Creates, and Truncates to > 'w+'.
+         $accessTypes = "w+";
+      }
+      elsif($accessTypes =~ /\+\<|r\+/)
+      {
+         # +< or r+ 	Reads and Writes to > 'r+'.
+         $accessTypes = "r+";
+      }
+      elsif($accessTypes =~ /\>\>|a/)
+      {
+         # >> or a 	Writes, Appends, and Creates to > 'a'.
+         $accessTypes = "a";
+      }
+      elsif($accessTypes =~ /\>|w/)
+      {
+         # > or w 	Creates, Writes, and Truncates to 'w'.
+         $accessTypes = "w";
+      }
+      else
+      {
+         # < or r 	Read Only Access to 'r'.
+         $accessTypes = "r";
+      }
+      
+      # Final translation.
+      $inputLine = $spaces.$fileHandle." = open(\"".$file."\", \"".$accessTypes."\")\n";
+      
+   }
    
    $result = $inputLine;
 	
 	return $result;   
 }
+
 
 # Function which imports 'sys' library and checks if it already imported ################
 #########################################################################################
@@ -751,6 +858,7 @@ sub importSys
    }
 }
 
+
 # Function which imports 'fileinput' library and checks if it already imported ##########
 #########################################################################################
 sub importFileInput
@@ -781,6 +889,7 @@ sub importFileInput
          
    }
 }
+
 
 # Function which imports 'RE' library and checks if it already imported #################
 #########################################################################################
@@ -893,7 +1002,23 @@ sub applyTypeCasting
 }
 
 
-
+# Function which translates a single Perl string to a equivalant form in Python #########
+#########################################################################################
+sub convertSinglePerlOutputString
+{  
+   my ($inputLine) = @_;
+   
+   # Put quotes around all sub parts of srring.
+   $inputLine =~ s/(\s*)([^ ]+)(\s*)/"$2"/g;
+   
+   # Insert concatenation symbols and spaces.
+   $inputLine =~ s/""/"+" "+"/g;
+   
+   # Unquote variables & convert them while here. 
+   $inputLine =~ s/\"[\$\@]([a-zA-Z_0-9]+)\"/str($1)/g;
+   
+   return $inputLine
+} 
 
 
 
