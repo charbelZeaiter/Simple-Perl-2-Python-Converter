@@ -295,7 +295,7 @@ print "@myArr\n";
 $x = "hello ";
 
 $y = "!!!!";
-$k = "juggs";
+$k = "june";
 $c = 34;
 
 $x .= $c."The"."brown"."fox".$c.$y."over"."fence".$k;
@@ -326,6 +326,8 @@ foreach $line (<F>)
 }
 
 print @cache;
+
+close F;
 
 
 

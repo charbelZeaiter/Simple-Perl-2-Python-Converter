@@ -21,5 +21,6 @@ Date     Start    Stop     Activity             Comments
 08/10    08:30    11:30    Coding & Testing     Subset 5, 'open' function.
 08/10    16:00    17:30    Debugging            Print parsing function.
 08/10    18:30    19:30    Testing & Debugging  Print parsing.
-09/10    09:00    11:15    Testing & Debugging  Print parsing and operator parsing, producing test and demo files.
+09/10    09:00    12:30    Testing & Debugging  Print parsing and operator parsing.
+09/10    15:30    22:00    Testing & Debugging  Producing test and demo files.
 

@@ -73,7 +73,7 @@ while ($line = <>)
       
 	   push(@translatedCode, $line);
 	}
-	elsif ($line =~ m/\s*if\s*\(|\s*elsif\s*\(|\s*else\s*\{|\s*while\s*\(|\s*foreach\s*\(|\s*for\s*/)
+	elsif ($line =~ m/\s*if\s*\(|\s*elsif\s*\(|\s*else\s*\{?|\s*while\s*\(|\s*foreach\s*\(|\s*for\s*/)
 	{
 	   # Detected a control structure.
       
@@ -121,7 +121,7 @@ while ($line = <>)
       
 	   push(@translatedCode, $line);
 	}
-	elsif ($line =~ /[\$\@\%]|open\(/)
+	elsif ($line =~ /[\$\@\%]|open\(?|close [a-zA-Z0-9_]+/)
 	{
 	   # Detected Variable line.
 	   
@@ -157,6 +157,7 @@ while ($line = <>)
 	{
 	
 		# Lines that can't be translated are turned into comments.
+		chomp($line);
 		push(@translatedCode, "# Could not translate: |".$line."|\n");
 		
 	} 
@@ -368,7 +369,7 @@ sub translatePrintSubPartWithNewline
       # Case: Multiple words (multiple spaces between them).
       
       # Put quotes around all sub parts of srring.
-      $inputLine =~ s/(\s*)([a-zA-Z0-9_\$\:\=\\\+\'\"]+)(\s*)/"$2"/g;
+      $inputLine =~ s/(\s*)([^ ]+)(\s*)/"$2"/g;
       
       # Put print concatenation symbols.
       $inputLine =~ s/\"\"/", "/g;
@@ -410,7 +411,7 @@ sub translatePrintSubPartWithoutNewline
       # Case: Multiple words (multiple spaces between them).
       
       # Put quotes around all sub parts of srring.
-      $inputLine =~ s/(\s*)([a-zA-Z0-9_\$\:\=\\\+\'\"]+)(\s*)/"$2"/g;
+      $inputLine =~ s/(\s*)([^ ]+)(\s*)/"$2"/g;
       
       # Preserve spacing format.
       $inputLine =~ s/(\"\"\$)/ $1/g;
@@ -459,7 +460,7 @@ sub parseNumericConstant
    my $result = "";
    
    # Extract parts from code line.
-   $inputLine =~ s/use constant ([_a-zA-Z0-9]+) \=\> ([0-9]+)\;/$1 $2/i or die("Unexpected error in 'parseNumericConstant' function. \n");
+   $inputLine =~ s/use constant ([_a-zA-Z0-9]+) \=\> ([0-9]+)\;/$1 = $2/i or die("Unexpected error in 'parseNumericConstant' function. \n");
    
    $result = $inputLine;
    
@@ -535,7 +536,7 @@ sub parseOperators
    
    # Regular expressions.
    if($inputLine =~ /\s*\$.+?\s+\=\~\s*m?\/.+\/\;?/)
-   {
+   {  
       # Translate line.
       $inputLine =~ s/(\s*)\$(.+?)(\s+)\=\~\s*\/(.+)\/\;?/$1$2$3= re.search('$4', $2)/g;
       
@@ -586,7 +587,7 @@ sub parseControlStructures
 {
    my ($inputLine) = @_;
    
-   if($inputLine =~ m/^(\s*if|\s*while)\s*\((.*?)\)\s*\{?/)
+   if($inputLine =~ m/^(\s*if|\s*while)\s*\((.*)\)\s*\{?/)
    {   
       # Translate 'if' or 'while'.      
       $inputLine = $1." ".$2.":\n";
@@ -609,7 +610,7 @@ sub parseControlStructures
       $listPart = $3;
       
       # Remove outer brackets.
-      $listPart =~ s/^\((.+)\)/$1/;
+      $listPart =~ s/^[\[\(](.+)[\)\]]/$1/;
       
       # Remove ending space and bracket.
       $listPart =~ s/\s*\[?$//;
@@ -728,10 +729,10 @@ sub parseFunctions
    $inputLine =~ s/(\s*)chomp\s*\(?\s*\$([a-zA-Z0-9_]+)\s*\)?\s*\;/$1$2 = $2.rstrip()/ig;  
    
    # Translate if exists, the 'join' function.
-   $inputLine =~ s/join\(?([\'\"].+?[\'\"])\,\s*(.+?)\)/$1.join($2)/;
+   $inputLine =~ s/join\s*\(?([\'\"\/].+?[\'\"\/])\,\s*(.+?)\)/$1.join($2)/;
    
    # Translate if exists, the 'split' function.
-   $inputLine =~ s/split\(?([\'\"].+?[\'\"])\,\s*(\$[a-zA-Z0-9_]+)\)?/$2.split($1)/;
+   $inputLine =~ s/split\s*\(?([\'\"\/].+?[\'\"\/])\,\s*(\$[a-zA-Z0-9_]+)\)?/$2.split($1)/;
    
    # Translate if exists, the 'push' function with variable.
    $inputLine =~ s/push\(\@([a-zA-Z0-9_]+),\s*([\$\'\"a-zA-Z0-9_]+)\)/$1.append($2)/;
@@ -777,7 +778,7 @@ sub parseFunctions
    }
  
    # Translate 'open' function.
-   if($inputLine =~ /^(\s*)open\(\<?([a-zA-Z0-9_]+)\>?\,\s*[\'\"]([rwa\+\<\>]+)(.+?)[\'\"]\)\;/)
+   if($inputLine =~ /^(\s*)open\s*\(?\<?([a-zA-Z0-9_]+)\>?\,\s*[\'\"]([rwa\+\<\>]+)(.+?)[\'\"]\)?\;/)
    {  
       $spaces = $1;
       $fileHandle = $2;
@@ -820,6 +821,9 @@ sub parseFunctions
       $inputLine = $spaces.$fileHandle." = open(\"".$file."\", \"".$accessTypes."\")\n";
       
    }
+   
+   # Translate file handle close function.
+   $inputLine =~ s/^(\s*)close\s*([a-zA-Z_0-9]+)\s*/$1$2.close()/;
    
    $result = $inputLine;
 	

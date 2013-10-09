@@ -31,8 +31,8 @@ print factor0 * factor1
 
 
 
-DEBUG 0
-LIMIT 5
+DEBUG = 0
+LIMIT = 5
 
 
 
@@ -278,7 +278,7 @@ print myArr
 x = "hello "
 
 y = "!!!!"
-k = "juggs"
+k = "june"
 c = 34
 
 x += str(c)+"The"+"brown"+"fox"+str(c)+str(y)+"over"+"fence"+str(k)
@@ -307,6 +307,8 @@ for line in F:
    cache.append(line)
 
 print cache
+
+F.close()
 
 
 
